@@ -4050,6 +4050,49 @@ const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{imp
 try{banner()}catch(_){}
 })();
 </script>
+<script>
+/* PANALIM · App 1 · IA consultiva con clave API propia (Groq / Cerebras / Z.AI) + seguro contra pantalla trabada */
+(function(){'use strict';
+const P=window.PANALIMPrototype,S=P.state,KEY='panalim_ai_cfg_v1',n=v=>Number(v)||0;
+const EP={Groq:{url:'https://api.groq.com/openai/v1/chat/completions',model:'llama-3.3-70b-versatile',help:'console.groq.com → API Keys'},Cerebras:{url:'https://api.cerebras.ai/v1/chat/completions',model:'llama-3.3-70b',help:'cloud.cerebras.ai → API Keys'},'Z.AI':{url:'https://api.z.ai/api/paas/v4/chat/completions',model:'glm-4.5-flash',help:'z.ai → API Keys (puede bloquear llamadas desde el navegador)'}};
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}},store=o=>{try{localStorage.setItem(KEY,JSON.stringify(o))}catch(_){}};
+const $=i=>document.getElementById(i),esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+/* ---- seguro anti-bloqueo de scroll: nada debe dejar la página sin poder desplazarse ---- */
+const st=document.createElement('style');st.textContent='html,body{overflow-y:auto!important;touch-action:pan-x pan-y pinch-zoom}#aiCfg{border:1px solid #ded5cc;border-radius:10px;padding:10px;margin:10px 0;background:#faf7f2}#aiCfg input,#aiCfg select{width:100%;padding:8px;border:1px solid #ded5cc;border-radius:8px;margin:3px 0 8px;box-sizing:border-box}#aiCfg small{color:#746b65}';document.head.appendChild(st);
+function ui(){if($('aiCfg'))return;const g=document.querySelector('#aiDrawer .grid-2');if(!g)return;
+ g.insertAdjacentHTML('afterend',`<div id="aiCfg"><b>Conexión con la IA (su clave API)</b><br><small>La clave se guarda solo en este aparato y nunca se exporta ni se envía a PANALIM. Al consultar, se envía al proveedor un resumen del día (productos y cantidades).</small><label style="display:block;font-size:.74rem;margin-top:8px">Clave API<input id="aiKey" type="password" autocomplete="off" placeholder="pegue aquí la clave"></label><label style="display:block;font-size:.74rem">Modelo<input id="aiModelTxt" placeholder="modelo"></label><small id="aiHelp"></small><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" data-ai2="save">Guardar clave</button><button class="btn" data-ai2="test">Probar</button><button class="btn" data-ai2="del">Borrar</button></div><div id="aiStat" style="font-size:.74rem;margin-top:6px"></div></div>`);
+ const sel=$('aiProvider');sel.addEventListener('change',fill);fill()}
+function fill(){const p=$('aiProvider').value,c=load()[p]||{};$('aiKey').value=c.key||'';$('aiModelTxt').value=c.model||EP[p].model;$('aiHelp').textContent='Dónde obtenerla: '+EP[p].help;$('aiStat').innerHTML=c.key?'<span style="color:#246b46">● Clave guardada: la IA responderá con el proveedor real.</span>':'<span style="color:#a53a31">● Sin clave: se usa la vista previa local (simulada).</span>'}
+/* ---- contexto mínimo del día ---- */
+function ctx(){const p=S.plant,by={};p.completed.forEach(x=>{const r=by[x.productName]=by[x.productName]||{latas:0,unidades:0,destino:x.destination};r.latas+=n(x.trays);r.unidades+=n(x.totalMoldedUnits)});
+ const O=S.r33.orders,ord=[...O.sierra.lines.map(x=>['Sierra',x]),...O.coast.bakeryLines.map(x=>['Costa',x])].filter(([,x])=>n(x.orderTrays)||n(x.orderUnits)).map(([z,x])=>({zona:z,producto:x.productName,latas:n(x.orderTrays),unidades:n(x.orderUnits)}));
+ const arch=(S.r33.archives||[]).filter(a=>a.shift==='T1'&&a.snapshot).slice(-7).map(a=>({fecha:a.operationalDate,unidades:a.snapshot.completed.reduce((s,x)=>s+n(x.totalMoldedUnits),0)}));
+ return{fecha:S.r33.operationalDate||p.date,turno:p.shift,modulo:S.module,produccion_en_pantalla:by,orden_del_dia:ord.slice(0,80),retenido:(S.r33.retList||[]).map(x=>({producto:x.name,unidades:n(x.units),estado:x.state})),t3_importado:S.r33.t3in?(S.r33.t3in.t3||[]).reduce((s,x)=>s+n(x.units),0):null,pasteleria_unidades:S.r33.pastryIn?(S.r33.pastryIn.items||[]).reduce((s,x)=>s+n(x.units),0):null,ultimos_cierres_T1:arch}}
+const SYS='Eres un analista de producción de una panadería (Pan de Ambato Doña Adita, Ecuador). Responde en español, claro y breve, con viñetas. Solo PROPONES y explicas: nunca afirmes haber modificado órdenes, producción, dinero ni cierres. Usa solo los datos entregados; si falta información, dilo. Señala diferencias entre orden y producción, productos sin producir, tendencias frente a cierres anteriores y acciones sugeridas para revisión humana.';
+async function call(provider,q){const c=load()[provider]||{};if(!c.key)throw Error('no hay clave guardada para '+provider);const ep=EP[provider],ac=new AbortController(),t=setTimeout(()=>ac.abort(),45000);
+ try{const r=await fetch(ep.url,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.model||ep.model,temperature:0.2,max_tokens:900,messages:[{role:'system',content:SYS},{role:'user',content:'DATOS DEL DÍA (JSON):\n'+JSON.stringify(ctx())+'\n\nCONSULTA: '+q}]})});
+  if(!r.ok){const tx=await r.text().catch(()=>'');throw Error(r.status===401||r.status===403?'clave rechazada por '+provider+' (revise que esté completa y activa)':r.status===429?'límite de uso del proveedor alcanzado, intente en un minuto':r.status===404||r.status===400?'modelo no válido: corrija el nombre del modelo ('+tx.slice(0,120)+')':'error '+r.status+' '+tx.slice(0,120))}
+  const j=await r.json();return j.choices?.[0]?.message?.content||'(respuesta vacía)'}
+ catch(e){if(e.name==='AbortError')throw Error('el proveedor tardó demasiado');if(/Failed to fetch|NetworkError|Load failed/i.test(e.message))throw Error('sin conexión, o el proveedor no permite llamadas desde el navegador (CORS)');throw e}finally{clearTimeout(t)}}
+const md=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^\s*[-*•]\s+(.*)$/gm,'• $1').replace(/\n/g,'<br>');
+document.addEventListener('click',async e=>{
+ const b2=e.target.closest('[data-ai2]');
+ if(b2){e.preventDefault();const p=$('aiProvider').value,o=load();
+  if(b2.dataset.ai2==='save'){const k=$('aiKey').value.trim();if(!k)return toast('Pegue primero la clave.');o[p]={key:k,model:$('aiModelTxt').value.trim()||EP[p].model};store(o);fill();toast('Clave de '+p+' guardada en este aparato.')}
+  else if(b2.dataset.ai2==='del'){delete o[p];store(o);fill();toast('Clave borrada.')}
+  else if(b2.dataset.ai2==='test'){const k=$('aiKey').value.trim();if(k){o[p]={key:k,model:$('aiModelTxt').value.trim()||EP[p].model};store(o)}$('aiStat').textContent='Probando…';try{const t=await call(p,'Responde solo: conexión correcta.');$('aiStat').innerHTML='<span style="color:#246b46">● Conectado: '+esc(t.slice(0,80))+'</span>'}catch(x){$('aiStat').innerHTML='<span style="color:#a53a31">● '+esc(x.message)+'</span>'}}
+  return}
+ const g=e.target.closest('[data-action="generate-ai"]');if(!g)return;
+ const p=$('aiProvider').value;if(!(load()[p]||{}).key)return;           /* sin clave: sigue la vista previa local */
+ e.stopImmediatePropagation();e.preventDefault();
+ const q=$('aiPrompt').value.trim()||'Revise los datos del día, señale faltantes y diferencias contra la orden y proponga acciones.';
+ const out=$('aiAnswer');out.textContent='Consultando a '+p+'…';g.disabled=true;
+ try{const t=await call(p,q);out.innerHTML='<b>Respuesta de '+esc(p)+' · '+esc((load()[p]||{}).model||'')+'</b><br>'+md(t)+'<br><small>Propuesta de la IA: requiere revisión humana.</small>';S.aiReady=true;const a=$('queueAiBtn'),r=$('rejectAiBtn');if(a)a.disabled=false;if(r)r.disabled=false}
+ catch(x){out.innerHTML='<span style="color:#a53a31"><b>No se pudo consultar la IA:</b> '+esc(x.message)+'</span>'}finally{g.disabled=false}},true);
+ui();setInterval(ui,1500);
+})();
+</script>
+
 <script src="../shared/pwa.js"></script></body>
 
 
