@@ -1,6 +1,8 @@
 /* PANALIM · PWA: service worker + botón «atrás» controlado (no saca de la app) */
 (function(){'use strict';
-if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let shown=false;
+ addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{const chk=()=>{try{r.update()}catch(_){}};chk();document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});setInterval(chk,10*60*1000)}).catch(()=>{}));
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had||shown)return;shown=true;const b=document.createElement('div');b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:100000;background:#0b7c77;color:#fff;padding:10px 14px;font:600 14px system-ui;display:flex;gap:10px;justify-content:space-between;align-items:center';b.innerHTML='<span>Hay una versión nueva de la app</span><button style="border:0;border-radius:8px;padding:7px 12px;font-weight:700">Actualizar ahora</button>';b.querySelector('button').onclick=()=>location.reload();document.body.appendChild(b)})}
 const G=window;let stack=[],cur=null,lastBack=0,busy=false;
 const toast=m=>{try{G.toast?G.toast(m):alert(m)}catch(_){}};
 /* ---- pantalla actual (módulo/pestaña) según la app ---- */
