@@ -1,5 +1,5 @@
-/* PANALIM service worker · 20261012041406 · abre sin internet; se actualiza solo cuando hay conexión */
-const V='panalim-app1-20261012041406',FILES=['./','index.html','manifest.webmanifest','../shared/pwa.js','icons/icon-192.png','icons/icon-512.png'];
+/* PANALIM service worker · 20261012042427 · abre sin internet; se actualiza solo cuando hay conexión */
+const V='panalim-app1-20261012042427',FILES=['./','index.html','manifest.webmanifest','../shared/pwa.js','icons/icon-192.png','icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x.startsWith('panalim-app1-')&&x!==V).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET'||new URL(r.url).origin!==location.origin)return;
