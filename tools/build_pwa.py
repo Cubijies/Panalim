@@ -8,7 +8,7 @@ META={'app1':('PANALIM · Producción','Producción','Orden y moldeado del turno
       'app7':('PANALIM · Turno 2','Turno 2','Supervisor: local principal, pastelería, T3'),
       'app8':('PANALIM · T3 Moldeador','T3 Moldeador','Registro del moldeador del turno tarde')}
 VER=time.strftime('%Y%m%d%H%M%S')
-HEAD='''<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#75242a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="%s"><link rel="apple-touch-icon" href="icons/icon-192.png"><link rel="icon" href="icons/icon-192.png"><style>html,body{overscroll-behavior-y:contain}</style>'''
+HEAD='''<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#75242a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="%s"><link rel="apple-touch-icon" href="icons/icon-192.png"><link rel="icon" href="icons/icon-192.png">'''
 SW='''/* PANALIM service worker · %(ver)s · abre sin internet; se actualiza solo cuando hay conexión */
 const V='panalim-%(app)s-%(ver)s',FILES=['./','index.html','manifest.webmanifest','../shared/pwa.js','icons/icon-192.png','icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
