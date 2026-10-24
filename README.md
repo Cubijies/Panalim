@@ -21,3 +21,9 @@ git add -A && git commit -m "Actualiza apps" && git push
 Las apps se actualizan solas la siguiente vez que se abren con internet (cerrar y abrir 2 veces).
 
 Los datos viven en el teléfono (localStorage del dominio). Hacer respaldo con el botón de cada app antes de cambiar de dominio o borrar datos del navegador.
+
+
+## Contenedor único (PANALIM)
+- `public/index.html`: pestañas Producción · Turno 2 · T3 moldeador sin salir ni recargar.
+- Lo que una app exporta llega solo a la app que lo necesita; los archivos siguen con «Guardar…» (elige carpeta) o «Compartir…».
+- Apps directas: `/app1/`, `/app7/`, `/app8/`.

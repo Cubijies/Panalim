@@ -34,4 +34,7 @@ def main():
         json.dump(man,open(os.path.join(d,'manifest.webmanifest'),'w'),indent=2,ensure_ascii=False)
         open(os.path.join(d,'sw.js'),'w').write(SW%{'app':app,'ver':VER})
         print('OK',app,round(os.path.getsize(os.path.join(d,'index.html'))/1024),'KB')
-main()
+SHELL_SW=SW.replace("'../shared/pwa.js'","'shared/pwa.js','app1/','app7/','app8/'").replace("panalim-%(app)s-","panalim-shell-")
+def shell():
+    open(os.path.join(ROOT,'sw.js'),'w').write(SHELL_SW%{'app':'shell','ver':VER});print('OK shell sw')
+main();shell()
