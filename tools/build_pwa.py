@@ -36,5 +36,6 @@ def main():
         print('OK',app,round(os.path.getsize(os.path.join(d,'index.html'))/1024),'KB')
 SHELL_SW=SW.replace("'../shared/pwa.js'","'shared/pwa.js','app1/','app7/','app8/'").replace("panalim-%(app)s-","panalim-shell-")
 def shell():
+    ip=os.path.join(ROOT,'index.html');h=open(ip,encoding='utf8').read();import re as _r;h=_r.sub(r'v(__BUILD__|\d{14})','v'+VER,h);open(ip,'w',encoding='utf8').write(h)
     open(os.path.join(ROOT,'sw.js'),'w').write(SHELL_SW%{'app':'shell','ver':VER});print('OK shell sw')
 main();shell()
