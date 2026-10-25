@@ -1,7 +1,46 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>PANALIM · Pan de Ambato Doña Adita</title><meta name="theme-color" content="#75242a"><link rel="icon" href="icon-512.png">
-<style>:root{--wine:#75242a;--teal:#0b7c77;--line:#ded5cc}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f0ea;color:#2e2825;padding:env(safe-area-inset-top) 0 24px}header{background:var(--wine);color:#fff;padding:22px 16px}header b{font-size:1.3rem}header small{display:block;opacity:.8;margin-top:2px}main{max-width:620px;margin:auto;padding:14px}a.app{display:flex;align-items:center;gap:14px;background:#fffefa;border:1px solid var(--line);border-left:6px solid var(--wine);border-radius:14px;padding:14px;margin-bottom:12px;text-decoration:none;color:inherit}a.app img{width:56px;height:56px;border-radius:12px}a.app b{display:block;font-size:1.05rem}a.app span{font-size:.8rem;color:#746b65}.tip{font-size:.8rem;color:#554c46;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.5}</style></head><body>
-<header><b>PANALIM</b><small>Pan de Ambato Doña Adita · control operativo</small></header><main>
-<a class="app" href="app1/"><img src="app1/icons/icon-192.png" alt=""><div><b>App 1 · Producción</b><span>Orden, moldeado, calidad, relevo y cierre del turno 1</span></div></a>
-<a class="app" href="app7/"><img src="app7/icons/icon-192.png" alt=""><div><b>App 7 · Turno 2</b><span>Supervisor: local principal, pastelería, sobrantes y T3</span></div></a>
-<a class="app" href="app8/"><img src="app8/icons/icon-192.png" alt=""><div><b>App 8 · T3 Moldeador</b><span>Registro de producción del turno tarde</span></div></a>
-<div class="tip"><b>Instalar en Android:</b> abra cada app en Chrome → menú ⋮ → <b>Instalar aplicación</b> (o «Agregar a la pantalla principal»). Cada una queda como un ícono aparte, abre a pantalla completa y funciona sin internet.<br><br>Los datos se guardan en el teléfono. Entre apps se pasan con los archivos sellados (WhatsApp / Telegram).</div></main></body></html>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>PANALIM</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#75242a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="icons/icon-192.png"><link rel="icon" href="icons/icon-192.png">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#f4f0ea;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+#bar{position:fixed;top:0;left:0;right:0;z-index:5;height:calc(46px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);background:linear-gradient(180deg,#4f181d,#75242a);display:flex;gap:6px;align-items:center;padding-left:8px;padding-right:8px}
+#bar b{color:#fff;font-size:.8rem;margin-right:4px;white-space:nowrap}
+.tab{flex:1;min-width:0;border:0;border-radius:9px;padding:9px 6px;background:#ffffff22;color:#fff;font-weight:700;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.tab.on{background:#fff;color:#75242a}
+.tab .dot{position:absolute;top:3px;right:6px;width:10px;height:10px;border-radius:50%;background:#f2a31b;display:none}.tab.new .dot{display:block}
+iframe{position:fixed;left:0;right:0;bottom:0;top:calc(46px + env(safe-area-inset-top));width:100%;height:calc(100% - 46px - env(safe-area-inset-top));border:0;background:#f4f0ea;display:none}iframe.on{display:block}
+#msg{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#2e2825;color:#fff;padding:10px 16px;border-radius:10px;font-size:.82rem;opacity:0;transition:.2s;pointer-events:none;max-width:92%;z-index:9}#msg.on{opacity:1}
+</style></head><body>
+<div id="bar"><b>PANALIM <small id="ver" style="font-weight:400;opacity:.7;font-size:.6rem">v20261025001326</small></b><button class="tab" data-app="app1">Producción<i class="dot"></i></button><button class="tab" data-app="app7">Turno 2<i class="dot"></i></button><button class="tab" data-app="app8">T3 moldeador<i class="dot"></i></button></div>
+<iframe id="f-app1" title="Producción"></iframe><iframe id="f-app7" title="Turno 2"></iframe><iframe id="f-app8" title="T3 moldeador"></iframe><div id="msg"></div>
+<script>
+(function(){'use strict';
+const NAMES={app1:'Producción',app7:'Turno 2',app8:'T3 moldeador'},$=s=>document.querySelector(s),KEY='panalim_shell_tab_v1';
+let cur='app1',lastBack=0;const loaded={};
+try{const v=localStorage.getItem(KEY);if(NAMES[v])cur=v}catch(_){}
+function toast(m){const t=$('#msg');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),3500)}
+function ensure(app){const f=$('#f-'+app);if(!loaded[app]){loaded[app]=new Promise(res=>{f.addEventListener('load',()=>setTimeout(res,700),{once:true});f.src=app+'/'});}return loaded[app]}
+function show(app){cur=app;try{localStorage.setItem(KEY,app)}catch(_){}document.querySelectorAll('.tab').forEach(b=>{b.classList.toggle('on',b.dataset.app===app);if(b.dataset.app===app)b.classList.remove('new')});document.querySelectorAll('iframe').forEach(f=>f.classList.toggle('on',f.id==='f-'+app));ensure(app)}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.dataset.app));
+/* enlace automático entre apps: lo que una exporta lo recibe la otra sin archivos */
+function route(m){if(m.kind==='T1_TO_T2_HANDOFF')return{app:'app7',inputId:'fRel',what:'el relevo de T1'};
+ if(m.kind==='T3_PRODUCTION'&&m.role==='MOLDEADOR_T3')return{app:'app7',inputId:'fT3',what:'el T3 del moldeador'};
+ if(['T3_PRODUCTION','PASTRY_PRODUCTION','T2_LOCAL_PRINCIPAL_NOTE','T2_CONTROL'].includes(m.kind))return{app:'app1',inputId:'t3inFile',what:'lo de Turno 2'};
+ return null}
+addEventListener('message',async e=>{if(e.origin!==location.origin)return;const d=e.data||{};
+ if(d.panalimOut){const m=d.panalimOut,r=route(m);if(!r)return;await ensure(r.app);
+  $('#f-'+r.app).contentWindow.postMessage({panalimIn:{name:m.name,text:m.text,inputId:r.inputId}},location.origin);
+  try{e.source.postMessage({panalimAck:{name:m.name,to:NAMES[r.app]}},location.origin)}catch(_){}
+  if(cur!==r.app)document.querySelector('.tab[data-app='+r.app+']').classList.add('new');
+  toast('✓ Se envió '+r.what+' a «'+NAMES[r.app]+'». Toque su pestaña para verlo.')}
+ else if(d.panalimBackDone!==undefined&&back.cb){const cb=back.cb;back.cb=null;cb(d.panalimBackDone)}});
+/* botón «atrás» del teléfono: primero lo usa la app activa; solo si no hay nada que cerrar pide doble toque para salir */
+function back(cb){back.cb=cb;try{$('#f-'+cur).contentWindow.postMessage({panalimBack:1},location.origin)}catch(_){back.cb=null;cb(false)}setTimeout(()=>{if(back.cb){const c=back.cb;back.cb=null;c(false)}},500)}
+history.replaceState({s:0},'');history.pushState({s:1},'');
+addEventListener('popstate',()=>{back(h=>{if(h){history.pushState({s:1},'');return}const n=Date.now();if(n-lastBack<2500){history.back();return}lastBack=n;toast('Toque «atrás» otra vez para salir');history.pushState({s:1},'')})});
+/* guardar al ocultar: las apps ya se guardan solas; aquí solo pedimos almacenamiento persistente */
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
+if('serviceWorker' in navigator){let had=!!navigator.serviceWorker.controller,shown=false;addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{const chk=()=>{try{r.update()}catch(_){}};document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});setInterval(chk,10*60*1000)}).catch(()=>{}));
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had||shown)return;shown=true;const b=document.createElement('div');b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:100000;background:#0b7c77;color:#fff;padding:10px 14px;font:600 14px system-ui;display:flex;gap:10px;justify-content:space-between;align-items:center';b.innerHTML='<span>Hay una versión nueva</span><button style="border:0;border-radius:8px;padding:7px 12px;font-weight:700">Actualizar ahora</button>';b.querySelector('button').onclick=()=>location.reload();document.body.appendChild(b)})}
+show(cur);
+})();
+</script></body></html>
