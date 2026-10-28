@@ -4170,6 +4170,28 @@ const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh
 renderModule();
 })();
 </script>
+<script>
+/* PANALIM · App 1 · contador de latas con correcciones (reemplaza la libreta) */
+(function(){'use strict';
+const P=window.PANALIMPrototype,S=P.state,H={},CAR=36;
+const proc=c=>(S.plant.teams[c.dataset.team]&&S.plant.teams[c.dataset.team].processes||[]).find(v=>v.id===c.dataset.process);
+const num=v=>parseInt(String(v||'').replace(/[^0-9]/g,''),10)||0;
+function setv(card,f,v){const el=card.querySelector('[data-plant-field="'+f+'"]');if(!el)return;el.value=String(Math.max(0,Math.round(v)));el.dispatchEvent(new Event('input',{bubbles:true}))}
+function show(card){const x=proc(card),el=card.querySelector('[data-ux-show]');if(!x||!el)return;const t=num(x.trays),l=num(x.looseUnits),p=num(x.ppt);el.innerHTML='<b>'+t+'</b> latas completas · <b>'+l+'</b> sueltas'+(p?' · total <b>'+(t*p+l)+'</b> u':' · elija «Piezas/lata»');const u=card.querySelector('[data-ux-c="undo"]');if(u)u.disabled=!(H[x.id]&&H[x.id].length)}
+const B=(a,t,c)=>'<button type="button" data-ux-c="'+a+'" style="padding:14px 6px;border-radius:12px;border:1px solid #ded5cc;background:'+(c||'#fff')+';font-weight:800;font-size:1rem;color:'+(c?'#fff':'#2e2825')+'">'+t+'</button>';
+const BOX='<div data-ux-count style="margin:8px 0;padding:10px;border:2px solid #0b7c77;border-radius:12px;background:#f3faf8"><div data-ux-show style="font-size:1rem;margin-bottom:8px"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+B('lata','+ 1 lata','#0b7c77')+B('coche','+ coche ('+CAR+' latas)','#0b7c77')+B('menos','− 1 lata')+B('menoscoche','− coche ('+CAR+')')+'</div><div style="margin-top:10px;font-size:.78rem;color:#746b65">¿Una lata salió incompleta o sobraron piezas?</div><div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px"><input data-ux-n inputmode="numeric" placeholder="piezas de esa lata" style="padding:12px;border:1px solid #ded5cc;border-radius:10px;font-size:1rem">'+B('inc','Lata incompleta')+'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">'+B('suelta','+ sueltas')+B('sueltamenos','− sueltas')+B('undo','↶ Deshacer')+'</div></div>';
+function enh(){document.querySelectorAll('[data-plant-card]').forEach(card=>{const x=proc(card);if(!x||x.status!=='RUNNING')return;if(!card.querySelector('[data-ux-count]')){const a=card.querySelector('.process-fields');if(a)a.insertAdjacentHTML('beforebegin',BOX)}show(card)})}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-ux-c]');if(!b)return;e.preventDefault();const card=b.closest('[data-plant-card]'),x=card&&proc(card);if(!x)return;const a=b.dataset.uxC,T=num(x.trays),L=num(x.looseUnits),n=num(card.querySelector('[data-ux-n]').value),p=num(x.ppt),hs=H[x.id]=H[x.id]||[];
+ if(a==='undo'){const h=hs.pop();if(h){setv(card,'trays',h[0]);setv(card,'looseUnits',h[1])}show(card);return}
+ let nt=T,nl=L;
+ if(a==='lata')nt=T+1;else if(a==='coche')nt=T+CAR;else if(a==='menos'){if(T<1)return toast('No hay latas que restar.');nt=T-1}else if(a==='menoscoche'){if(T<CAR)return toast('Hay menos de '+CAR+' latas.');nt=T-CAR}
+ else if(a==='inc'){if(T<1)return toast('Primero cuente la lata completa y luego corríjala.');if(!n)return toast('Escriba cuántas piezas tenía esa lata incompleta.');if(p&&n>=p)return toast('Esa lata tenía '+n+' piezas: ya sería completa ('+p+').');nt=T-1;nl=L+n}
+ else if(a==='suelta'){if(!n)return toast('Escriba cuántas piezas sueltas.');nl=L+n}else if(a==='sueltamenos'){if(!n)return toast('Escriba cuántas piezas quitar.');nl=Math.max(0,L-n)}
+ hs.push([T,L]);if(hs.length>40)hs.shift();setv(card,'trays',nt);setv(card,'looseUnits',nl);if(a==='inc'||a==='suelta'||a==='sueltamenos')card.querySelector('[data-ux-n]').value='';show(card)},true);
+const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh()}catch(e){console.error(e)}};
+renderModule();
+})();
+</script>
 <script src="../shared/pwa.js"></script></body>
 
 
