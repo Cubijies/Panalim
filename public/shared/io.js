@@ -40,3 +40,10 @@ addEventListener('message',e=>{if(e.origin!==location.origin)return;const d=e.da
  if(d.panalimAck){const f=Q.find(x=>x.name===d.panalimAck.name);if(f){f.auto=d.panalimAck.to;draw()}return}
  if(d.panalimIn){const x=d.panalimIn;try{const inp=document.createElement('input');inp.type='file';inp.id=x.inputId;inp.hidden=true;const dt=new DataTransfer();dt.items.add(new File([x.text],x.name,{type:'application/json'}));inp.files=dt.files;document.body.appendChild(inp);inp.dispatchEvent(new Event('change',{bubbles:true}));setTimeout(()=>inp.remove(),1500)}catch(err){console.error(err)}}});
 })();
+/* aviso rojo con el error real (para no adivinar) */
+(function(){if(window.__pnErr)return;window.__pnErr=1;let last='';
+function show(msg,det){if(!msg||/ResizeObserver/i.test(msg)||msg===last)return;last=msg;let b=document.getElementById('pnErr');if(!b){b=document.createElement('div');b.id='pnErr';b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:100002;background:#a53a31;color:#fff;padding:10px 12px;font:600 13px system-ui;display:flex;gap:8px;align-items:center;justify-content:space-between';document.body.appendChild(b)}
+ b.innerHTML='<span style="word-break:break-word">⚠ Error: '+String(msg).replace(/[<&]/g,'').slice(0,220)+'</span><span style="display:flex;gap:6px;flex:none"><button data-e="c" style="border:0;border-radius:8px;padding:7px 10px;font-weight:700">Copiar</button><button data-e="x" style="border:0;border-radius:8px;padding:7px 10px">✕</button></span>';
+ b.onclick=e=>{const k=e.target.dataset&&e.target.dataset.e;if(k==='x'){b.remove();last=''}if(k==='c'){try{navigator.clipboard.writeText(msg+'\n'+(det||'')+'\n'+location.href+'\n'+navigator.userAgent)}catch(_){}e.target.textContent='Copiado'}}}
+addEventListener('error',e=>show(e.message,(e.filename||'')+':'+e.lineno+':'+e.colno+'\n'+(e.error&&e.error.stack||'')));
+addEventListener('unhandledrejection',e=>show('Promesa rechazada: '+((e.reason&&e.reason.message)||e.reason),(e.reason&&e.reason.stack)||''))})();
