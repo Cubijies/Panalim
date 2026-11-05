@@ -4183,6 +4183,58 @@ const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh
 renderModule();
 })();
 </script>
+<script>
+/* PANALIM · App 1 · Alarmas del turno: aprende de los cierres anteriores y avisa lo que falta (sin IA, sin internet) */
+(function(){'use strict';
+const P=window.PANALIMPrototype,S=P.state;
+const WD=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const wdOf=d=>new Date(d+'T12:00:00').getDay();
+const med=a=>{if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+const qnt=(a,p)=>{const s=[...a].sort((x,y)=>x-y),k=(s.length-1)*p,f=Math.floor(k),c=Math.min(f+1,s.length-1);return s[f]+(s[c]-s[f])*(k-f)};
+const cfg=()=>{const r=S.r33;if(!r.alarmCfg)r.alarmCfg={sens:'M',exclude:[],snooze:{}};const c=r.alarmCfg;c.exclude=c.exclude||[];c.snooze=c.snooze||{};c.sens=c.sens||'M';return c};
+const SENS={A:{freq:.8,q:.75,m:0,l:'Alta (avisa antes)'},M:{freq:.85,q:.9,m:3,l:'Media'},B:{freq:.9,q:.95,m:6,l:'Baja (avisa más tarde)'}};
+const u=x=>Number(x.totalMoldedUnits||x.physical||0)||0,esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fm=n=>Math.round(n).toLocaleString('es-EC');
+function history(){const by={};(S.r33.archives||[]).forEach(a=>{if(a.shift!=='T1'||!a.snapshot||!Array.isArray(a.snapshot.completed)||a.operationalDate===S.plant.date)return;const n=a.snapshot.completed.length;if(!by[a.operationalDate]||by[a.operationalDate].procs.length<n)by[a.operationalDate]={date:a.operationalDate,procs:a.snapshot.completed.map((x,i)=>({...x,_i:i})).sort((x,y)=>(x.sequence||x._i)-(y.sequence||y._i))}});
+ const all=Object.values(by).sort((a,b)=>a.date<b.date?-1:1),m=med(all.map(d=>d.procs.length));all.forEach(d=>{d.partial=d.procs.length<0.6*m;d.excl=cfg().exclude.includes(d.date)});return{all,use:all.filter(d=>!d.partial&&!d.excl),m}}
+function stats(use){const st={};use.forEach(d=>{const seen=new Set(),q={};d.procs.forEach((x,i)=>{const s=st[x.code]=st[x.code]||{code:x.code,name:x.productName||x.code,n:0,ranks:[],teams:{},wq:{},q:[]};if(!seen.has(x.code)){seen.add(x.code);s.n++;s.ranks.push(i+1)}s.teams[x.team]=(s.teams[x.team]||0)+1;q[x.code]=(q[x.code]||0)+u(x)});
+  Object.entries(q).forEach(([c,v])=>{const s=st[c],w=wdOf(d.date);(s.wq[w]=s.wq[w]||[]).push(v);s.q.push(v)})});return st}
+function expected(s,w){const a=(s.wq[w]||[]).length>=2?s.wq[w]:s.q;return{m:med(a),lo:Math.min(...a),hi:Math.max(...a),same:(s.wq[w]||[]).length>=2,k:a.length}}
+function compute(closing){const H=history(),c=cfg(),sn=SENS[c.sens]||SENS.M,out={H,items:[],ready:H.use.length>=8};if(!out.ready)return out;
+ const st=stats(H.use),cs=(S.plant.completed||[]).slice().sort((a,b)=>(a.sequence||0)-(b.sequence||0)),N=cs.length,w=wdOf(S.plant.date),reg={},team={};
+ cs.forEach(x=>{reg[x.code]=(reg[x.code]||0)+u(x);(team[x.code]=team[x.code]||[]).push(x.team)});
+ let ord={};try{(P.r33.consolidated()||[]).forEach(r=>{if(r.order>0)ord[r.code]=r.order})}catch(_){}
+ const add=(level,key,title,text)=>{if(c.snooze[S.plant.date+'|'+key])return;out.items.push({level,key,title,text})};
+ const listed=new Set();
+ Object.values(st).forEach(s=>{if(s.n/H.use.length<sn.freq||reg[s.code]!=null)return;const thr=qnt(s.ranks,sn.q)+sn.m;if(N<thr&&!closing)return;const e=expected(s,w);listed.add(s.code);
+  add(ord[s.code]?'red':'amber','falta|'+s.code,'Falta '+s.name,'≈ '+fm(e.m)+' u (suele ser '+fm(e.lo)+'–'+fm(e.hi)+' los '+(e.same?WD[w]+'s':'días')+'). Se hace en el '+Math.round(med(s.ranks))+'.º proceso más o menos; van '+N+'.'+(ord[s.code]?' Pedido: '+fm(ord[s.code])+' u.':''))});
+ Object.entries(ord).forEach(([code,o])=>{if(reg[code]!=null||listed.has(code))return;if(!closing&&N<0.8*H.m)return;const s=st[code];add('amber','ped|'+code,'Pedido sin producir: '+(s?s.name:code),fm(o)+' u en el pedido y nada registrado.')});
+ Object.entries(reg).forEach(([code,tot])=>{const s=st[code];if(!s)return;const e=expected(s,w);if(e.k<3||e.m<=0)return;
+  if(tot>1.5*e.m)add('amber','alto|'+code,'Cantidad alta: '+s.name,fm(tot)+' u hoy; lo habitual es ≈ '+fm(e.m)+' ('+fm(e.lo)+'–'+fm(e.hi)+').');
+  else if(tot<0.6*e.m&&(closing||N>=0.8*H.m))add('amber','bajo|'+code,'Cantidad baja: '+s.name,fm(tot)+' u hoy; lo habitual es ≈ '+fm(e.m)+' ('+fm(e.lo)+'–'+fm(e.hi)+').')});
+ Object.entries(team).forEach(([code,ts])=>{const s=st[code];if(!s)return;const tot=Object.values(s.teams).reduce((a,b)=>a+b,0);if(tot<10)return;const top=Object.entries(s.teams).sort((a,b)=>b[1]-a[1])[0];if(top[1]/tot<0.95)return;if(ts.some(t=>t!==top[0]))add('info','eq|'+code,'Equipo distinto: '+s.name,'Casi siempre lo hace el Equipo '+top[0]+' y hoy se registró en '+[...new Set(ts)].join('/')+'. Revise.')});
+ out.items.sort((a,b)=>({red:0,amber:1,info:2}[a.level]-{red:0,amber:1,info:2}[b.level]));out.st=st;out.N=N;return out}
+function html(closing){const o=compute(closing),c=cfg(),col={red:'#a53a31',amber:'#b9770e',info:'#0b7c77'};let h='<div class="card" id="uxAlarm" style="border-left:5px solid '+(o.items.some(i=>i.level==='red')?col.red:o.items.length?col.amber:'#0b7c77')+'"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>🔔 Alarmas del turno'+(closing?' · revisión antes de cerrar':'')+'</b><span class="sub">'+(o.ready?o.H.use.length+' días de historial':'')+'</span></div>';
+ if(!o.ready)h+='<div class="sub" style="margin-top:6px">Aún no hay historial suficiente ('+o.H.use.length+' días usables; se necesitan 8). Cargue abajo los respaldos de cierre anteriores.</div>';
+ else if(!o.items.length)h+='<div style="margin-top:6px">✓ Sin alarmas por ahora. Se revisa cada vez que registra un proceso.</div>';
+ else h+=(o.items.length>6?'<div class="sub" style="margin-top:6px">Mostrando las 6 más importantes de '+o.items.length+'.</div>':'')+o.items.slice(0,6).map(i=>'<div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:'+col[i.level]+'14;border:1px solid '+col[i.level]+'55"><div style="display:flex;justify-content:space-between;gap:8px"><b style="color:'+col[i.level]+'">'+esc(i.title)+'</b><button type="button" data-al="snooze" data-k="'+esc(i.key)+'" style="border:0;background:none;color:#746b65;font-size:.74rem">Ocultar hoy</button></div><div style="font-size:.86rem;margin-top:2px">'+esc(i.text)+'</div></div>').join('');
+ h+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:.82rem;font-weight:700">Patrones y ajustes</summary><div style="margin-top:8px"><label style="font-size:.78rem">Sensibilidad <select data-al="sens">'+Object.entries(SENS).map(([k,v])=>'<option value="'+k+'"'+(c.sens===k?' selected':'')+'>'+v.l+'</option>').join('')+'</select></label>';
+ h+='<div style="margin-top:8px;font-size:.78rem"><b>Cargar historial</b> (respaldos «Respaldo_interno» de cierres anteriores, puede elegir varios)<br><input type="file" id="alImp" accept=".json,application/json" multiple></div>';
+ h+='<div style="margin-top:8px;font-size:.78rem"><b>Días de historial</b> (desmarque los atípicos: feriados, pedidos especiales)<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px">'+o.H.all.map(d=>'<label style="white-space:nowrap"><input type="checkbox" data-al="day" data-d="'+d.date+'"'+(d.excl||d.partial?'':' checked')+(d.partial?' disabled':'')+'> '+d.date.slice(5)+(d.partial?' (incompleto)':'')+'</label>').join('')+'</div></div>';
+ if(o.st){const w=wdOf(S.plant.date),rows=Object.values(o.st).filter(s=>s.n/o.H.use.length>=0.5).sort((a,b)=>med(a.ranks)-med(b.ranks));h+='<div class="table-wrap" style="margin-top:8px;overflow:auto;max-height:260px"><table style="font-size:.74rem;width:100%"><thead><tr><th>Producto</th><th>Frec.</th><th>Equipo</th><th>Proceso</th><th>Hoy ('+WD[w]+')</th></tr></thead><tbody>'+rows.map(s=>{const e=expected(s,w),tm=Object.entries(s.teams).sort((a,b)=>b[1]-a[1])[0][0];return'<tr><td>'+esc(s.name)+'</td><td>'+Math.round(100*s.n/o.H.use.length)+'%</td><td>'+tm+'</td><td>~'+Math.round(med(s.ranks))+'</td><td>'+fm(e.m)+' ('+fm(e.lo)+'–'+fm(e.hi)+')</td></tr>'}).join('')+'</tbody></table></div>'}
+ return h+'</div></details></div>'}
+function enh(){const h=document.getElementById('moduleHost');if(!h||S.module!=='production'||document.getElementById('uxAlarm'))return;const t=S.tabs.production;if(t!=='molding'&&t!=='close')return;const a=h.querySelector('.tabs'),x=html(t==='close');if(a)a.insertAdjacentHTML('afterend',x);else h.insertAdjacentHTML('afterbegin',x)}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-al="snooze"]');if(!b)return;cfg().snooze[S.plant.date+'|'+b.dataset.k]=1;try{P.r33.persist('alarma')}catch(_){}renderModule()});
+document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset)return;
+ if(t.dataset.al==='sens'){cfg().sens=t.value;try{P.r33.persist('alarma')}catch(_){}renderModule()}
+ else if(t.dataset.al==='day'){const c=cfg(),d=t.dataset.d;c.exclude=c.exclude.filter(x=>x!==d);if(!t.checked)c.exclude.push(d);try{P.r33.persist('alarma')}catch(_){}renderModule()}
+ else if(t.id==='alImp'){let add=0,skip=0,bad=0;for(const f of t.files){try{const o=JSON.parse(await f.text()),a=o&&o.archive;if(!(o&&o.kind==='RESPALDO_CIERRE'&&a&&a.snapshot&&Array.isArray(a.snapshot.completed))){bad++;continue}
+   const ex=(S.r33.archives=S.r33.archives||[]).find(z=>z.shift===a.shift&&z.operationalDate===a.operationalDate);if(ex&&(ex.snapshot.completed||[]).length>=a.snapshot.completed.length){skip++;continue}if(ex)S.r33.archives.splice(S.r33.archives.indexOf(ex),1);S.r33.archives.push(a);add++}catch(_){bad++}}
+  try{P.r33.persist('historial')}catch(_){}toast('Historial: '+add+' día(s) agregado(s)'+(skip?', '+skip+' ya estaban':'')+(bad?', '+bad+' no válido(s)':'')+'.');renderModule()}});
+const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh()}catch(e){console.error(e)}};
+window.PANALIMAlarms=compute;renderModule();
+})();
+</script>
 <script src="../shared/pwa.js"></script></body>
 
 
