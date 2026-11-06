@@ -4235,6 +4235,39 @@ const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh
 window.PANALIMAlarms=compute;renderModule();
 })();
 </script>
+<script>
+/* PANALIM · App 1 · calculadora simple (+ − × ÷) dentro del proceso en curso */
+(function(){'use strict';
+const S=window.PANALIMPrototype.state;let expr='',res='',cardKey=null,open=false;
+const OPS={'+':1,'−':1,'×':2,'÷':2};
+function evalx(s){const t=[];let n='';for(const ch of s){if(/[0-9.]/.test(ch))n+=ch;else if(OPS[ch]){if(n===''){if(ch==='−'&&(t.length===0||OPS[t[t.length-1]])){n='-';continue}if(t.length&&OPS[t[t.length-1]])t[t.length-1]=ch;continue}t.push(parseFloat(n));n='';t.push(ch)}}
+ if(n!==''&&n!=='-')t.push(parseFloat(n));else if(t.length&&OPS[t[t.length-1]])t.pop();if(!t.length)return null;
+ const a=[t[0]];for(let i=1;i<t.length;i+=2){const op=t[i],v=t[i+1];if(v===undefined)break;if(op==='×')a[a.length-1]*=v;else if(op==='÷'){if(v===0)return NaN;a[a.length-1]/=v}else a.push(op,v)}
+ let r=a[0];for(let i=1;i<a.length;i+=2){r=a[i]==='+'?r+a[i+1]:r-a[i+1]}return r}
+const fmtN=r=>r==null?'':isNaN(r)?'Error':String(Math.round(r*1e6)/1e6);
+function sheet(){let el=document.getElementById('uxCalc');if(el)return el;el=document.createElement('div');el.id='uxCalc';el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9998;display:none;background:#fffefa;border-top:3px solid #0b7c77;box-shadow:0 -6px 24px #0004;padding:8px 10px calc(10px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;font-family:system-ui,sans-serif;touch-action:manipulation';
+ const K=(l,c,s)=>'<button type="button" data-k="'+l+'" style="padding:14px 0;border-radius:12px;border:1px solid #ded5cc;background:'+(c||'#fff')+';font-size:1.25rem;font-weight:800;'+(s||'')+'">'+l+'</button>';
+ el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:.8rem">🧮 Calculadora</b><button type="button" data-k="cerrar" style="border:0;background:none;font-size:1.3rem;padding:4px 10px">✕</button></div><div id="uxCx" style="text-align:right;font-size:.95rem;color:#746b65;min-height:1.3em;overflow:hidden;white-space:nowrap"></div><div id="uxCr" style="text-align:right;font-size:2rem;font-weight:800;min-height:1.3em;margin-bottom:6px">0</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">'+K('C','#f6e6e4')+K('⌫','#f4f0ea')+K('÷','#e8f3f1')+K('×','#e8f3f1')+K('7')+K('8')+K('9')+K('−','#e8f3f1')+K('4')+K('5')+K('6')+K('+','#e8f3f1')+K('1')+K('2')+K('3')+K('=','#0b7c77','color:#fff;grid-row:span 2')+K('0','#fff','grid-column:span 2')+K('.')+'</div><button type="button" data-k="lxu" style="width:100%;margin-top:6px;padding:9px;border-radius:10px;border:1px dashed #0b7c77;background:#fff;font-weight:700;color:#0b7c77">Poner latas × unidades por lata</button><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><button type="button" data-k="total" style="padding:12px;border-radius:12px;border:0;background:#75242a;color:#fff;font-weight:800">Usar como TOTAL</button><button type="button" data-k="latas" style="padding:12px;border-radius:12px;border:1px solid #75242a;background:#fff;color:#75242a;font-weight:800">Usar como LATAS</button></div>';
+ document.body.appendChild(el);el.addEventListener('click',onKey);return el}
+function paint(){const el=sheet();el.querySelector('#uxCx').textContent=expr&&res&&expr!==res?expr:'';const r=evalx(expr);el.querySelector('#uxCr').textContent=expr===''?'0':(r==null?expr:(/[+−×÷]/.test(expr.replace(/^-/,''))?'= '+fmtN(r):expr))}
+function card(){return cardKey&&document.querySelector('[data-plant-card][data-process="'+cardKey+'"]')}
+function setf(card,sel,val){const i=card&&card.querySelector(sel);if(!i)return false;i.value=String(val);i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));return true}
+function onKey(e){const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
+ if(k==='cerrar'){hide();return}
+ if(k==='C'){expr='';res=''}else if(k==='⌫'){expr=expr.slice(0,-1)}
+ else if(k==='='){const r=evalx(expr);if(r!=null&&!isNaN(r))expr=fmtN(r)}
+ else if(k==='lxu'){const c=card(),tr=c&&c.querySelector('[data-plant-field="trays"]').value,pp=c&&c.querySelector('[data-plant-field="ppt"]').value;if(tr&&pp)expr=(parseInt(tr,10)||0)+'×'+(parseInt(pp,10)||0);else toast('Escriba primero las latas y elija las unidades por lata.')}
+ else if(k==='total'||k==='latas'){const r=evalx(expr);if(r==null||isNaN(r))return toast('Calcule primero un resultado.');const v=Math.round(r);if(v<0)return toast('El valor no puede ser negativo.');const ok=k==='total'?setf(card(),'[data-tot-real]',v):setf(card(),'[data-plant-field="trays"]',v);toast(ok?(k==='total'?'Total real contado: ':'Latas: ')+v:'No encontré el campo en pantalla.');if(ok)hide();return}
+ else if(OPS[k]){if(expr===''&&k!=='−')return;if(/[+−×÷]$/.test(expr))expr=expr.slice(0,-1);expr+=k}
+ else{if(k==='.'&&/\.[0-9]*$/.test(expr))return;expr+=k}
+ paint()}
+function show(key){cardKey=key;open=true;expr='';const el=sheet();el.style.display='block';document.body.style.paddingBottom='420px';try{document.activeElement&&document.activeElement.blur()}catch(_){}paint()}
+function hide(){open=false;const el=document.getElementById('uxCalc');if(el)el.style.display='none';document.body.style.paddingBottom=''}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-ux-calc]');if(!b)return;e.preventDefault();const c=b.closest('[data-plant-card]');show(c&&c.dataset.process)},true);
+function enh(){document.querySelectorAll('[data-plant-card]').forEach(c=>{if(c.querySelector('[data-ux-calc]'))return;const t=c.querySelector('[data-tot-real]');if(!t)return;const l=t.closest('label')||t;l.insertAdjacentHTML('beforebegin','<button type="button" data-ux-calc style="width:100%;margin:8px 0;padding:12px;border-radius:12px;border:1px solid #0b7c77;background:#f3faf8;color:#0b7c77;font-weight:800;font-size:1rem">🧮 Calculadora</button>')})}
+const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh()}catch(e){console.error(e)}};renderModule();
+})();
+</script>
 <script src="../shared/pwa.js"></script></body>
 
 
