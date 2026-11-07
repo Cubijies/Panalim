@@ -4079,6 +4079,11 @@ function statsDoc(){const M=qmodel(),f=M.f,C=M.C,T=(h,rows)=>`<table><thead><tr>
  +(M.sel.length>1&&M.days?(()=>{const cols=M.sel.filter(c=>M.P[c]);return `<h3>Unidades por ítem y por día</h3>`+T(['Fecha',...cols.map(c=>esc(M.names.get(c))),'Total'],[...C.map(({r,c})=>[r.date,...cols.map(k=>c.byP[k]?fm(c.byP[k].u):'—'),fm(c.u)]),{k:'tot',c:['TOTAL',...cols.map(k=>fm(M.P[k].u)),fm(M.U)]}])})():'')
  +`<h3>Análisis</h3><ul style="font-size:.78rem;line-height:1.5">${analysisList(M).map(t=>'<li>'+t+'</li>').join('')}</ul>`}
 function printDoc(title,html){document.body.classList.remove('print-58','print-80');document.body.classList.add('print-a4');document.getElementById('docModalTitle').textContent=title;document.getElementById('docBody').innerHTML=`<div class="doc-sheet">${docHeader(title,'PAN-PRO-FR-030','Rev. 01','EST-'+opDate())}${html}${docFooter()}</div>`;document.getElementById('docModal').classList.add('open')}
+/* ---------- Armador de histórico: incluye los cierres archivados (panes nuevos como las guaguas) ---------- */
+function syncHist(){try{const H=P.DATA.history_series;for(let i=H.length-1;i>=0;i--)if(H[i]._arch)H.splice(i,1);const base=new Set(H.map(x=>x.fecha)),g={};
+ recs().forEach(r=>{if(base.has(r.date))return;r.done.forEach(x=>{if(!x.code)return;const reg=x.destination==='COSTA'?'COSTA':'SIERRA',tu=x.destination==='T3'?'T3':'T1',k=[r.date,reg,tu,x.code].join('|'),q=g[k]=g[k]||{fecha:r.date,region:reg,turno:tu,codigo:x.code,producto:x.productName||x.code,latas:0,unidades_registradas:0,piezas_por_lata:n(x.ppt)||null,filas:0,_arch:true};q.latas+=n(x.trays);q.unidades_registradas+=n(x.totalMoldedUnits);q.filas++})});
+ Object.values(g).forEach(x=>H.push(x))}catch(e){console.error(e)}}
+if(typeof renderBIv2==='function'){const _bi=renderBIv2;renderBIv2=function(){syncHist();return _bi.apply(this,arguments)}}
 /* ---------- integración ---------- */
 function enhance(){const h=document.getElementById('moduleHost');if(!h||S.module!=='production')return;const t=S.tabs.production;
  if(t==='staff'&&!document.getElementById('hhRitmo')){const strip=document.getElementById('featStrip');const anchor=strip||h.querySelector('.tabs');const sib=[];let x=strip?strip.nextElementSibling:h.querySelector('.tabs')?.nextElementSibling;while(x){sib.push(x);x=x.nextElementSibling}
