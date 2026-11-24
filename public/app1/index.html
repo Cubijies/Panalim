@@ -3499,7 +3499,7 @@ renderModule=function(){if(r33SkipNextCapture)r33SkipNextCapture=false;else r33C
 const nav=document.querySelector('[data-module-nav="order"]');if(nav){const b=nav.querySelector('b'),s=nav.querySelector('small');if(b)b.textContent='Orden del día';if(s)s.textContent='T1 Sierra + Costa · T2 T3'}
 document.querySelectorAll('.apk-version').forEach(x=>x.textContent='Producción');
 r33RegisterLifecycle();r33PushRoute();
-Object.assign(window.PANALIMPrototype,{r33:{schema:R33_SCHEMA,key:R33_KEY,version:R33_VERSION,ensure:r33Ensure,persist:r33PersistNow,handleBack:r33HandleBack,reset:r33Reset,mergeIntervals:r33MergeIntervals,hhRows:r33HHRows,consolidated:r33Consolidated,saveQuality:r33SaveQuality,saveClimate:r33SaveClimate,closeT1:r33CloseT1,closeT2:r33CloseT2,verifyBundle:r33VerifyBundle,importHandoff:r33ImportHandoff,importPrevious:r33ImportPrevious,importDispatchClose:r33ImportDispatchClose,importCoast:r33ImportCoast,buildHHReport:r33BuildHHReport,wipRows:r33WipRows}});
+Object.assign(window.PANALIMPrototype,{r33:{catalog:r33Catalog,orderRef:r33OrderReference,orderUnits:r33OrderUnits,completed:r33Completed,procUnits:r33ProcessUnits,canon:r33CanonicalCode,audit:r33Audit,persistSoon:r33PersistSoon,schema:R33_SCHEMA,key:R33_KEY,version:R33_VERSION,ensure:r33Ensure,persist:r33PersistNow,handleBack:r33HandleBack,reset:r33Reset,mergeIntervals:r33MergeIntervals,hhRows:r33HHRows,consolidated:r33Consolidated,saveQuality:r33SaveQuality,saveClimate:r33SaveClimate,closeT1:r33CloseT1,closeT2:r33CloseT2,verifyBundle:r33VerifyBundle,importHandoff:r33ImportHandoff,importPrevious:r33ImportPrevious,importDispatchClose:r33ImportDispatchClose,importCoast:r33ImportCoast,buildHHReport:r33BuildHHReport,wipRows:r33WipRows}});
 renderModule();
 })();
 </script>
@@ -4371,6 +4371,127 @@ function enh(){document.querySelectorAll('[data-plant-card]').forEach(c=>{if(c.q
 const _rm=renderModule;renderModule=function(){_rm.apply(this,arguments);try{enh()}catch(e){console.error(e)}};renderModule();
 })();
 </script>
+<script>
+/* ---------- Dictado por voz de procesos (confirmación obligatoria antes de crear) ---------- */
+(()=>{'use strict';const RR=()=>window.PANALIMPrototype.r33;
+const $=id=>document.getElementById(id),E=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const N={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiun:21,veintiuno:21,veintiuna:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,ciento:100,doscientos:200,doscientas:200,trescientos:300,trescientas:300,cuatrocientos:400,cuatrocientas:400,quinientos:500,quinientas:500,seiscientos:600,seiscientas:600,setecientos:700,setecientas:700,ochocientos:800,ochocientas:800,novecientos:900,novecientas:900};
+/* normaliza 1 a 1 (sin tildes, minúsculas, signos → espacio) para conservar posiciones */
+const norm=t=>String(t||'').replace(/[ÁÀÄ]/g,'A').replace(/[ÉÈË]/g,'E').replace(/[ÍÌÏ]/g,'I').replace(/[ÓÒÖ]/g,'O').replace(/[ÚÙÜ]/g,'U').replace(/Ñ/g,'N').toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u').replace(/ñ/g,'n').replace(/[^a-z0-9]/g,' ');
+function digits(s){const tk=s.split(/\s+/).filter(Boolean),out=[];let acc=0,tot=0,run=false;const flush=()=>{if(run){out.push(String(tot+acc));acc=0;tot=0;run=false}};
+ for(let i=0;i<tk.length;i++){const w=tk[i];
+  if(/^\d+$/.test(w)){flush();out.push(w);continue}
+  if(w==='mil'){acc=(acc||1)*1000;tot+=acc;acc=0;run=true;continue}
+  if(w in N){const v=N[w],lo=acc%100;let ok=true;if(run){if(v>=100)ok=acc===0||lo!==0&&false?acc===0:(acc%1000===0&&false)||acc===0;else if(v>=10)ok=lo===0;else ok=lo===0||(lo>=30&&lo%10===0&&tk[i-1]==='y')}if(!ok){flush()}acc+=v;run=true;continue}
+  if(w==='y'&&run&&tk[i+1]in N&&N[tk[i+1]]<10&&acc%10===0&&acc>=30&&acc<100)continue;
+  flush();out.push(w)}
+ flush();return out.join(' ')}
+const stem=w=>w.replace(/(es|s)$/,'').replace(/[aeo]$/,'');
+const STOP=new Set(['de','del','la','el','los','las','y','con','en','un','una']);
+function lev(a,b){if(a===b)return 0;if(Math.abs(a.length-b.length)>1)return 9;const m=[];for(let i=0;i<=a.length;i++){m[i]=[i]}for(let j=1;j<=b.length;j++)m[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return m[a.length][b.length]}
+const tkEq=(a,b)=>a===b||(a.length>=5&&b.length>=5&&lev(a,b)<=1);
+const nameTokens=n=>norm(n).split(/\s+/).filter(w=>w&&!STOP.has(w)).map(stem);
+function matchProduct(left,cat){const ut=left.split(/\s+/).filter(w=>w&&!STOP.has(w)).map(stem);let best=[],top=0;
+ cat.forEach(p=>{const nt=nameTokens(p.name),hit=nt.filter(t=>ut.some(u=>tkEq(t,u))).length;if(!hit)return;const full=hit===nt.length,score=(full?100:0)+hit*10-nt.length;p._s={hit,full,score};best.push(p)});
+ best.sort((a,b)=>b._s.score-a._s.score);
+ const full=best.filter(p=>p._s.full);
+ if(full.length&&(full.length===1||full[0]._s.score>full[1]._s.score))return{product:full[0],sure:true,cands:best.slice(0,5)};
+ if(best.length===1)return{product:best[0],sure:false,cands:best};
+ return{product:null,sure:false,cands:best.slice(0,6)}}
+function parse(text,ctx){const org=String(text||''),r={text:org,team:'',dest:'',ppt:0,trays:0,loose:0,note:'',code:'',cands:[],sure:false,notes:[]};let t=norm(org);
+ const nm=/\b(novedad|observacion|nota|motivo)\b/.exec(t);if(nm){r.note=org.slice(nm.index+nm[1].length).replace(/^[\s:,.-]+/,'').trim();t=t.slice(0,nm.index)}
+ let m=/\bequipo\s+(a|b|be|uno|dos|1|2)\b/.exec(t);if(m){r.team=/^(a|uno|1)$/.test(m[1])?'A':'B';t=t.replace(m[0],' ')}
+ if(/\bcosta\b/.test(t)){r.dest='COSTA';t=t.replace(/\bcosta\b/,' ')}else if(/\bsierra\b/.test(t)){r.dest='SIERRA';t=t.replace(/\bsierra\b/,' ')}else if(/\b(t3|te tres)\b/.test(t)){r.dest='T3';t=t.replace(/\b(t3|te tres)\b/,' ')}
+ t=digits(t.replace(/\s+/g,' ').trim());let s=' '+t+' ',rm=x=>{s=s.replace(x,' ')};
+ if(m=/(\d+)\s+coches?(\s+y\s+medi[oa])?\b/.exec(s)){r.trays+=Number(m[1])*36+(m[2]?18:0);rm(m[0])}
+ if(m=/(\d+)\s+latas?\s+(?:de|por|a|con|x)\s+(\d+)\b/.exec(s)){r.trays+=Number(m[1]);r.ppt=Number(m[2]);rm(m[0])}
+ else if(m=/(\d+)\s+latas?\b/.exec(s)){r.trays+=Number(m[1]);rm(m[0])}
+ else if(m=/\blatas?\s+(\d+)\b/.exec(s)){r.trays+=Number(m[1]);rm(m[0])}
+ if(!r.ppt){if(m=/(\d+)\s+(?:unidades\s+|piezas\s+)?(?:por|x)\s+lata/.exec(s)){r.ppt=Number(m[1]);rm(m[0])}else if(r.trays&&(m=/\b(?:factor|piezas|de)\s+(\d+)\b(?!\s+(?:latas?|coches?|sueltas?|sueltos?))/.exec(s))){r.ppt=Number(m[1]);rm(m[0])}}
+ if(m=/(\d+)\s+(?:unidades\s+)?(?:sueltas?|sueltos?)\b/.exec(s)||/(?:sueltas?|sueltos?)\s+(\d+)\b/.exec(s)){r.loose=Number(m[1]);rm(m[0])}
+ else if(m=/\bmas\s+(\d+)\s+unidades?\b/.exec(s)){r.loose=Number(m[1]);rm(m[0])}
+ if(m=/\btotal\s+(?:real\s+)?(\d+)\b/.exec(s)){const tot=Number(m[1]);rm(m[0]);r.totalSaid=tot}
+ r.left=s.replace(/\b(latas?|coches?|unidades|piezas|proceso|crear|nuevo|de|por|con|y|mas)\b/g,' ').replace(/\s+/g,' ').trim();
+ const cat=(ctx&&ctx.catalog)||[],mp=matchProduct(r.left,cat);if(mp.product){r.code=mp.product.code;r.sure=mp.sure}r.cands=mp.cands.map(p=>p.code);
+ if(r.totalSaid&&r.ppt&&r.trays){const l=r.totalSaid-r.trays*r.ppt;if(l>=0&&!r.loose)r.loose=l;else if(l!==r.loose)r.notes.push('El total dicho ('+r.totalSaid+') no coincide con latas × factor + sueltas.')}
+ return r}
+/* ---- estado e interfaz ---- */
+let rec=null,M=null,last='';const catalog=()=>{try{return RR().catalog().map(p=>({code:p.code,name:p.name,options:p.options||[]}))}catch(_){return[]}};
+const CSS=`#uxMic{position:fixed;right:14px;bottom:88px;z-index:9000;width:58px;height:58px;border-radius:50%;border:0;background:#0b7c77;color:#fff;font-size:26px;box-shadow:0 4px 14px rgba(0,0,0,.35);display:none}
+#uxVoice{position:fixed;left:0;right:0;bottom:0;z-index:10050;background:#fffaf3;border-top:3px solid #0b7c77;border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.3);padding:12px 12px 16px;max-height:88vh;overflow:auto;display:none;font-family:system-ui,sans-serif}
+#uxVoice h4{margin:0 0 6px;font-size:1rem;display:flex;justify-content:space-between;align-items:center}
+#uxVoice textarea{width:100%;min-height:58px;font-size:1rem;padding:8px;border:1px solid #cdbfae;border-radius:10px;box-sizing:border-box}
+#uxVoice .vrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}#uxVoice button.vb{border:0;border-radius:12px;padding:12px 14px;font-weight:700;font-size:.95rem;background:#e8dccb;color:#3a2a1a}
+#uxVoice button.vb.go{background:#0b7c77;color:#fff}#uxVoice button.vb.rec{background:#c0392b;color:#fff}#uxVoice button.vb[disabled]{opacity:.45}
+#uxVoice .vgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}#uxVoice label{display:block;font-size:.75rem;color:#6a5846}#uxVoice select,#uxVoice input{width:100%;box-sizing:border-box;font-size:1rem;padding:8px;border:1px solid #cdbfae;border-radius:10px;background:#fff}
+#uxVoice .vtot{font-size:1.15rem;font-weight:800;margin:8px 0;color:#0b4f4c}#uxVoice .vm{font-size:.82rem;margin:3px 0}.vm.bad{color:#b3261e;font-weight:700}.vm.warn{color:#9a6b00}.vm.ok{color:#0b7c77}.vsub{font-size:.75rem;color:#6a5846}`;
+function ui(){if($('uxVoice'))return;const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+ const b=document.createElement('button');b.id='uxMic';b.type='button';b.title='Dictar proceso';b.textContent='🎤';b.onclick=open;document.body.appendChild(b);
+ const d=document.createElement('div');d.id='uxVoice';d.innerHTML=`<h4><span>🎤 Dictar proceso</span><button class="vb" data-v="close" style="padding:6px 12px">✕</button></h4>
+ <div class="vsub">Ejemplo: «Tapado, 36 latas de 18, equipo A» · «Empanada pequeña, 40 latas más 6 sueltas, equipo B, novedad: faltó masa»</div>
+ <textarea id="uxVT" placeholder="Pulse Hablar, o use el micrófono de su teclado aquí"></textarea>
+ <div class="vrow"><button class="vb go" data-v="talk" id="uxVTalk">🎤 Hablar</button><button class="vb" data-v="parse">Interpretar texto</button></div>
+ <div class="vm" id="uxVS"></div><div id="uxVCard"></div>`;document.body.appendChild(d);
+ d.addEventListener('click',e=>{const k=e.target.closest('[data-v]');if(!k)return;const a=k.dataset.v;if(a==='close')close();else if(a==='talk')talk();else if(a==='parse')interpret();else if(a==='make')make();else if(a==='again'){$('uxVT').value='';$('uxVCard').innerHTML='';M=null;talk()}else if(a==='clear'){$('uxVT').value='';$('uxVCard').innerHTML='';M=null}});
+ d.addEventListener('input',e=>{if(e.target.closest('#uxVCard'))readCard()});d.addEventListener('change',e=>{if(e.target.closest('#uxVCard')){if(e.target.id==='uxVCode'||e.target.id==='uxVTeam')defaults();readCard()}})}
+function status(t,c){const s=$('uxVS');if(s){s.textContent=t||'';s.className='vm '+(c||'')}}
+function open(){ui();$('uxVoice').style.display='block';$('uxMic').style.display='none';document.body.style.paddingBottom='460px';status(last,'ok')}
+function close(){try{rec&&rec.abort()}catch(_){}$('uxVoice').style.display='none';document.body.style.paddingBottom='';place()}
+function talk(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition,ta=$('uxVT'),btn=$('uxVTalk');
+ if(rec){try{rec.stop()}catch(_){}return}
+ if(!SR){status('Este navegador no trae reconocimiento de voz. Use Chrome u Opera, o toque el cuadro y use el micrófono del teclado.','warn');ta.focus();return}
+ ta.value='';$('uxVCard').innerHTML='';M=null;let got=false;rec=new SR();rec.lang='es-EC';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+ rec.onstart=()=>{btn.textContent='■ Detener';btn.className='vb rec';status('Escuchando… hable ahora','ok')};
+ rec.onresult=e=>{let f='',i='';for(const r of e.results){if(r.isFinal)f+=r[0].transcript+' ';else i+=r[0].transcript}ta.value=(f+i).trim();got=true};
+ rec.onerror=e=>{const m={'not-allowed':'Permiso de micrófono denegado: actívelo en los permisos del sitio.','service-not-allowed':'Este navegador no permite el reconocimiento de voz (Brave lo bloquea). Use Chrome u Opera.','network':'Sin conexión con el servicio de voz. Revise el internet o use Chrome/Opera (Brave lo bloquea).','no-speech':'No se oyó nada; intente otra vez.','audio-capture':'No se encontró micrófono.','aborted':''};status(m[e.error]??('Error de voz: '+e.error),'bad')};
+ rec.onend=()=>{rec=null;btn.textContent='🎤 Hablar';btn.className='vb go';if($('uxVT').value.trim())interpret();else if(!$('uxVS').textContent)status('No se captó nada.','warn')};
+ try{rec.start()}catch(err){rec=null;status('No se pudo iniciar el micrófono: '+err.message,'bad')}}
+function lastPpt(code){try{const c=(state.plant.completed||[]).filter(x=>(x.code===code)&&Number(x.ppt)>0);return c.length?Number(c[c.length-1].ppt):0}catch(_){return 0}}
+function formedTeams(){return['A','B'].filter(k=>state.plant.teams[k]&&state.plant.teams[k].formed)}
+function interpret(){const txt=$('uxVT').value;if(!txt.trim()){status('Escriba o dicte primero.','warn');return}const cat=catalog(),r=parse(txt,{catalog:cat});
+ if(!r.team){const f=formedTeams();r.team=f.length===1?f[0]:(M&&M.team)||''}
+ if(!r.dest){const code=r.code;r.dest=(()=>{try{if(code&&RR().orderRef(code,'SIERRA'))return'SIERRA';if(code&&RR().orderRef(code,'COSTA'))return'COSTA'}catch(_){}return'SIERRA'})()}
+ M=r;M.cat=cat;defaults(true);render();status('Revise la tarjeta y confirme.','ok')}
+function defaults(init){if(!M)return;const p=M.cat.find(v=>v.code===M.code);if(init!==true){readCard()}const pp=M.cat.find(v=>v.code===M.code);if(pp&&!M.ppt){M.ppt=lastPpt(M.code)||(pp.options.length===1?pp.options[0]:0);if(M.ppt&&!pp.options.includes(M.ppt)&&pp.options.length)M.ppt=pp.options.length===1?pp.options[0]:0}}
+function calc(){const x=M,tot=x.trays*x.ppt+x.loose,m=[];let block=false;const B=t=>{m.push(['bad',t]);block=true},W=t=>m.push(['warn',t]);
+ const p=x.cat.find(v=>v.code===x.code),t=state.plant.teams[x.team];
+ if(!x.team)B('Elija el equipo.');else if(!t||!t.formed||t.memberIds.length!==2)B('El Equipo '+x.team+' no está formado con dos moldeadores (hágalo en Moldeado).');
+ if(!p)B('Elija el producto.');else if(!p.options.length)B('Producto bloqueado: falta factor Sierra aprobado.');
+ if(!(x.ppt>0))B('Elija el factor (unidades por lata).');else if(p&&p.options.length&&!p.options.includes(x.ppt))B('El factor '+x.ppt+' no está aprobado para este producto.');
+ if(!(tot>0))B('Falte latas y/o unidades sueltas.');
+ if(x.trays>0&&x.trays%36===0)W('Coche(s) completo(s) exacto(s) ('+x.trays/36+'): confirme que no faltó ni sobró ninguna lata.');
+ if(x.trays>108)W('Más de 3 coches en un proceso: confirme el conteo.');
+ let rem=0,diff=true;try{if(x.code){const ref=RR().orderRef(x.code,x.dest),prev=RR().completed().filter(v=>RR().canon(v.code)===RR().canon(x.code)&&v.destination===x.dest).reduce((s,v)=>s+RR().procUnits(v),0),ord=ref?RR().orderUnits(ref):0;rem=Math.max(0,ord-prev);diff=!ref||tot!==rem}}catch(_){}
+ if(tot>0&&diff&&!String(x.note||'').trim())B('Total '+tot+' u ≠ saldo de orden '+rem+' u: escriba la novedad (obligatoria).');else if(tot>0&&!diff)m.push(['ok','Coincide con el saldo de la orden ('+rem+' u).']);
+ (x.notes||[]).forEach(W);return{tot,m,block,rem}}
+function render(){const x=M,c=$('uxVCard');if(!x){c.innerHTML='';return}const cands=[...new Set([...x.cands,...x.cat.map(p=>p.code)])],opts=cands.map(k=>{const p=x.cat.find(v=>v.code===k);return p?`<option value="${E(k)}" ${k===x.code?'selected':''}>${E(p.name)}</option>`:''}).join(''),p=x.cat.find(v=>v.code===x.code),fo=(p?p.options:[]).map(v=>`<option value="${v}" ${v===x.ppt?'selected':''}>${v} u/lata</option>`).join('');
+ const k=calc();c.innerHTML=`<div class="vgrid"><label>Producto${x.code&&!x.sure?' <b style="color:#9a6b00">(confirme)</b>':''}<select id="uxVCode"><option value="">Elegir…</option>${opts}</select></label>
+ <label>Equipo<select id="uxVTeam"><option value="">Elegir…</option><option ${x.team==='A'?'selected':''}>A</option><option ${x.team==='B'?'selected':''}>B</option></select></label>
+ <label>Latas<input id="uxVTr" inputmode="numeric" value="${x.trays||''}"></label><label>Factor<select id="uxVPpt"><option value="">Elegir…</option>${fo}</select></label>
+ <label>Sueltas (unidades)<input id="uxVLo" inputmode="numeric" value="${x.loose||''}"></label><label>Destino<select id="uxVDest"><option value="SIERRA" ${x.dest==='SIERRA'?'selected':''}>Sierra</option><option value="COSTA" ${x.dest==='COSTA'?'selected':''}>Costa</option></select></label></div>
+ <label style="margin-top:8px">Novedad${k.block&&k.m.some(v=>/novedad/.test(v[1]))?' <b style="color:#b3261e">(obligatoria)</b>':' (opcional)'}<input id="uxVNote" value="${E(x.note)}"></label>
+ <div class="vtot" id="uxVTot">${E(x.trays)} latas × ${E(x.ppt||0)} + ${E(x.loose)} sueltas = ${k.tot} unidades</div><div id="uxVMsgs">${k.m.map(v=>`<div class="vm ${v[0]}">${v[0]==='bad'?'⛔ ':v[0]==='warn'?'⚠ ':'✓ '}${E(v[1])}</div>`).join('')}</div>
+ <div class="vrow"><button class="vb go" data-v="make" id="uxVMake" ${k.block?'disabled':''}>✓ Crear proceso</button><button class="vb" data-v="again">🎤 Repetir</button><button class="vb" data-v="clear">Descartar</button></div>`}
+function readCard(){if(!M)return;const g=id=>$(id)&&$(id).value;M.code=g('uxVCode')||'';M.team=g('uxVTeam')||'';M.trays=parseInt(g('uxVTr'),10)||0;M.loose=parseInt(g('uxVLo'),10)||0;M.ppt=Number(g('uxVPpt'))||0;M.dest=g('uxVDest')||'SIERRA';M.note=g('uxVNote')||'';M.sure=true;
+ const p=M.cat.find(v=>v.code===M.code);if(p&&!M.ppt){/* mantiene vacío hasta que elijan */}
+ const k=calc();$('uxVTot').textContent=M.trays+' latas × '+(M.ppt||0)+' + '+M.loose+' sueltas = '+k.tot+' unidades';$('uxVMsgs').innerHTML=k.m.map(v=>`<div class="vm ${v[0]}">${v[0]==='bad'?'⛔ ':v[0]==='warn'?'⚠ ':'✓ '}${E(v[1])}</div>`).join('');$('uxVMake').disabled=k.block}
+function make(){if(!M)return;readCard();const k=calc();if(k.block)return;const x0=M,team=x0.team,p=state.plant,t=p.teams[team],before=(p.completed||[]).length;
+ let x=t.processes.find(v=>v.status==='DRAFT'&&!v.code);if(!x){addPlantProcess(team);x=t.processes[t.processes.length-1]}
+ x.code=x0.code;x.destination=x0.dest;x.ppt=String(x0.ppt);x.note=x0.note||'';
+ startPlantProcess(team,x.id);x=plantProcess(team,x.id);
+ if(!x||x.status!=='RUNNING'){status('No se pudo iniciar: revise el mensaje de la app (el proceso queda como borrador en el Equipo '+team+').','bad');return}
+ x.trays=String(x0.trays);x.looseUnits=String(x0.loose);x.note=x0.note||'';
+ const id=x.id;finishPlantProcess(team,id);
+ if((p.completed||[]).length<=before){status('El proceso quedó EN CURSO en el Equipo '+team+': termínelo allí (la app indicó el motivo).','bad');return}
+ try{const d=p.completed.find(v=>v.id===id);if(d){d.voice={text:x0.text,at:new Date().toISOString()};}RR().audit('PROCESO_POR_VOZ',id,null,{text:x0.text,code:x0.code,team,trays:x0.trays,ppt:x0.ppt,loose:x0.loose},'Creado por dictado con confirmación');RR().persistSoon('voz')}catch(_){}
+ const nm=(x0.cat.find(v=>v.code===x0.code)||{}).name||x0.code;last='✓ Creado: '+nm+' · '+k.tot+' u · Equipo '+team+'. Puede dictar otro.';$('uxVT').value='';$('uxVCard').innerHTML='';M=null;status(last,'ok');try{toast(last)}catch(_){}}
+/* botón flotante solo en Moldeado */
+function place(){const b=$('uxMic');if(!b)return;const on=state.module==='production'&&document.querySelector('#moduleHost .r33-plant-context');const v=$('uxVoice');b.style.display=on&&!(v&&v.style.display==='block')?'block':'none'}
+ui();const _rm=renderModule;renderModule=function(){const r=_rm.apply(this,arguments);try{place()}catch(_){}return r};place();
+window.PANALIMVoice={parse:(t)=>parse(t,{catalog:catalog()}),digits:(t)=>digits(norm(t)),open,calc:()=>M&&calc()};
+})();
+</script>
+
 <script src="../shared/pwa.js"></script></body>
 
 
