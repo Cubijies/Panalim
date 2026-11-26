@@ -182,4 +182,203 @@ addEventListener('unhandledrejection',e=>show('Promesa rechazada: '+((e.reason&&
 
 </script>
 
+<script>
+/* ---------- Dictado por voz (motor común T2 / T3): lista de productos con cantidades, confirmación antes de registrar ---------- */
+(()=>{'use strict';if(window.PNVoice)return;
+const D0=document,$=id=>D0.getElementById(id),E=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const N={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiun:21,veintiuno:21,veintiuna:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,ciento:100,doscientos:200,doscientas:200,trescientos:300,trescientas:300,cuatrocientos:400,cuatrocientas:400,quinientos:500,quinientas:500,seiscientos:600,seiscientas:600,setecientos:700,setecientas:700,ochocientos:800,ochocientas:800,novecientos:900,novecientas:900};
+const norm=t=>String(t||'').replace(/[ÁÀÄ]/g,'A').replace(/[ÉÈË]/g,'E').replace(/[ÍÌÏ]/g,'I').replace(/[ÓÒÖ]/g,'O').replace(/[ÚÙÜ]/g,'U').replace(/Ñ/g,'N').toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u').replace(/ñ/g,'n').replace(/[^a-z0-9]/g,' ');
+function digits(s){const tk=s.split(/\s+/).filter(Boolean),out=[];let acc=0,tot=0,run=false;const flush=()=>{if(run){out.push(String(tot+acc));acc=0;tot=0;run=false}};
+ for(let i=0;i<tk.length;i++){const w=tk[i];
+  if(/^\d+$/.test(w)){flush();out.push(w);continue}
+  if(w==='mil'){acc=(acc||1)*1000;tot+=acc;acc=0;run=true;continue}
+  if(w in N){const v=N[w],lo=acc%100;let ok=true;if(run){if(v>=100)ok=acc===0;else if(v>=10)ok=lo===0;else ok=lo===0||(lo>=30&&lo%10===0&&tk[i-1]==='y')}if(!ok){flush()}acc+=v;run=true;continue}
+  if(w==='y'&&run&&tk[i+1]in N&&N[tk[i+1]]<10&&acc%10===0&&acc>=30&&acc<100)continue;
+  flush();out.push(w)}
+ flush();return out.join(' ')}
+const stem=w=>/^\d+$/.test(w)?w:w.replace(/(es|s)$/,'').replace(/[aeo]$/,'');
+const STOP=new Set(['de','del','la','el','los','las','y','con','en','un','una','para','por']);
+const KW=new Set(['latas','lata','coche','coches','sueltas','suelta','sueltos','suelto','unidades','unidad','piezas','pieza','fundas','funda','bolsas','bolsa','paquetes','paquete','costa','sierra','total','mas','x','medio','media']);
+const GENERIC=new Set(['pan']);
+function lev(a,b){if(a===b)return 0;if(Math.abs(a.length-b.length)>1)return 9;const m=[];for(let i=0;i<=a.length;i++)m[i]=[i];for(let j=1;j<=b.length;j++)m[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return m[a.length][b.length]}
+const tkEq=(a,b)=>a===b||(a.length>=5&&b.length>=5&&lev(a,b)<=1);
+const isNum=w=>/^\d+$/.test(w);
+const nameTok=n=>norm(n).split(/\s+/).filter(w=>w&&!STOP.has(w)).map(stem);
+/* ¿qué producto empieza en la posición i? */
+function matchAt(tk,i,cat){const out=[];
+ cat.forEach(p=>{let best=null;(p.names||[p.name]).forEach(nm=>{const nt=p._nt&&p._nt[nm]||((p._nt=p._nt||{})[nm]=nameTok(nm));let j=i,k=0,last=i;
+  while(k<nt.length&&j<tk.length){const w=tk[j];if(STOP.has(w)&&!isNum(nt[k])){j++;continue}if(isNum(w)&&!isNum(nt[k]))break;if(KW.has(w)&&!/^(costa|sierra)$/.test(nt[k]))break;if(tkEq(stem(w),nt[k])){k++;j++;last=j}else break}
+  if(k>0){const c={p,k,full:k===nt.length,len:last-i,nt};if(!best||c.full&&!best.full||(c.full===best.full&&c.k>best.k))best=c}});
+  if(best)out.push(best)});
+ if(!out.length)return null;
+ const fulls=out.filter(c=>c.full);
+ if(fulls.length){fulls.sort((a,b)=>b.k-a.k);const top=fulls.filter(c=>c.k===fulls[0].k);if(top.length===1)return{code:top[0].p.code,sure:true,len:top[0].len,cands:out.map(c=>c.p.code)};return{code:'',sure:false,len:top[0].len,cands:top.map(c=>c.p.code)}}
+ const mk=Math.max(...out.map(c=>c.k)),top=out.filter(c=>c.k===mk);
+ if(mk===1&&top.every(c=>GENERIC.has(c.nt[0])))return null;
+ if(top.length===1)return{code:top[0].p.code,sure:false,len:top[0].len,cands:[top[0].p.code]};
+ return{code:'',sure:false,len:top[0].len,cands:top.map(c=>c.p.code)}}
+/* cantidades de un tramo de texto */
+function ext(s0){let s=' '+s0+' ',r={},m;const rm=x=>{s=s.replace(x,' ')};
+ if(/ costa /.test(s)){r.dest='COSTA';rm(/ costa /)}else if(/ sierra /.test(s)){r.dest='SIERRA';rm(/ sierra /)}
+ if(m=/ (\d+) coches?( y medi[oa])? /.exec(s)){r.trays=(r.trays||0)+Number(m[1])*36+(m[2]?18:0);rm(m[0])}
+ if(m=/ (\d+) latas? (?:de|por|a|con|x) (\d+) /.exec(s)){r.trays=(r.trays||0)+Number(m[1]);r.ppt=Number(m[2]);rm(m[0])}
+ else if(m=/ (\d+) latas? /.exec(s)){r.trays=(r.trays||0)+Number(m[1]);rm(m[0])}
+ else if(m=/ latas? (\d+) /.exec(s)){r.trays=(r.trays||0)+Number(m[1]);rm(m[0])}
+ if(r.ppt==null&&(m=/ (\d+) (?:unidades |piezas )?(?:por|x) lata /.exec(s))){r.ppt=Number(m[1]);rm(m[0])}
+ if(m=/ (\d+) (?:fundas?|bolsas?|paquetes?)(?: (?:de|por|x|con) (\d+))? /.exec(s)){r.bags=Number(m[1]);if(m[2])r.upf=Number(m[2]);rm(m[0])}
+ if(m=/ (\d+) (?:unidades )?(?:sueltas?|sueltos?) /.exec(s)||/ (?:sueltas?|sueltos?) (\d+) /.exec(s)){r.loose=Number(m[1]);rm(m[0])}
+ if(m=/ total (\d+) /.exec(s)){r.totalSaid=Number(m[1]);rm(m[0])}
+ if(m=/ (\d+) (?:unidades?|piezas?) /.exec(s)){r.units=Number(m[1]);rm(m[0])}
+ r.bare=(s.match(/ \d+ /g)||[]).map(x=>Number(x));s=s.replace(/ \d+ /g,' ');
+ r.rest=s.split(/\s+/).filter(w=>w&&!STOP.has(w)&&!KW.has(w)&&!/^(latas?|unidades?|fundas?|sueltas?)$/.test(w)).join(' ');return r}
+/* partir el dictado en tramos, uno por producto */
+function parseList(raw,D){const cat=D.catalog,meta={};let tk=digits(norm(raw).replace(/\s+/g,' ').trim()).split(' ').filter(Boolean);
+ if(D.nameCmd){const i=tk.findIndex((w,ix)=>/^(nombre|moldeador|moldeadora)$/.test(w)||(w==='soy'&&ix<3));if(i>=0){let j=i+1;if(tk[i]==='nombre'&&tk[j]==='es')j++;if(tk[i]==='nombre'&&tk[i-1]==='mi'){}const nm=[];while(j<tk.length&&nm.length<4&&!isNum(tk[j])&&!KW.has(tk[j])&&!STOP.has(tk[j])&&!matchAt(tk,j,cat)){nm.push(tk[j]);j++}
+  if(nm.length){meta.name=nm.map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');const from=(tk[i-1]==='mi'&&i>0)?i-1:i;tk=tk.slice(0,from).concat(tk.slice(j))}}}
+ const segs=[],pre=[];let cur=null;
+ for(let i=0;i<tk.length;){const w=tk[i];const m=(isNum(w)||KW.has(w)||STOP.has(w))?null:matchAt(tk,i,cat);if(m){cur={m,toks:[]};segs.push(cur);i+=Math.max(1,m.len)}else{(cur?cur.toks:pre).push(w);i++}}
+ if(segs.length&&pre.length)segs[0].toks=pre.concat(segs[0].toks);
+ const entries=segs.map(g=>{const f=ext(g.toks.join(' '));const e={code:g.m.code,sure:g.m.sure,cands:g.m.cands,rest:f.rest,totalSaid:f.totalSaid};D.build(e,f);return e});
+ return{entries,meta,pre:segs.length?'':pre.join(' ')}}
+function parseEsp(raw){const NW=new RegExp('\\b(\\d+|mil|'+Object.keys(N).join('|')+')\\b');
+ return String(raw||'').split(/\b(?:siguiente|otro pedido|otro especial)\b/i).map(p=>p.trim()).filter(Boolean).map(part=>{const t=norm(part),m=NW.exec(t);const e={name:'',units:null,note:''};
+  const head=m?part.slice(0,m.index):part,tailN=m?t.slice(m.index):'',tailO=m?part.slice(m.index):'';
+  e.name=head.replace(/[\s,.:;-]+$/,'').replace(/\s+(de|para|por)$/i,'').trim();
+  const nm=/\b(para|nota|observacion|a nombre de)\b/.exec(tailN);let numPart=tailN;if(nm){e.note=tailO.slice(nm.index+nm[0].length).replace(/^[\s:,.-]+/,'').trim();numPart=tailN.slice(0,nm.index)}
+  const d=digits(numPart.replace(/\s+/g,' ')),mm=/\d+/.exec(d);if(mm)e.units=Number(mm[0]);return e})}
+/* tipos de pantalla */
+const KINDS={
+ lata:{fields:[{k:'ppt',l:'u/lata'},{k:'trays',l:'Latas'},{k:'loose',l:'Sueltas'}],
+  build(e,f){const t=f.trays;if(f.ppt!=null)e.ppt=f.ppt;if(t!=null)e.trays=t;if(f.loose!=null)e.loose=f.loose;else if(f.units!=null)e.loose=f.units;if(e.trays==null&&e.loose==null&&f.bare.length)e.trays=f.bare[0]},
+  calc(e,D){const p=D.byCode(e.code),pv=D.mode==='set'?(D.prev(e.code)||{}):{},m=[];const ppt=e.ppt!=null?e.ppt:(pv.ppt||D.defPpt(e.code)||0),tr=e.trays!=null?e.trays:(pv.trays||0),lo=e.loose!=null?e.loose:(pv.loose||0),u=tr*ppt+lo;
+   if(!p)m.push(['bad','Elija el producto.']);
+   if(e.trays==null&&e.loose==null)m.push(['bad','Sin cantidad (latas o sueltas).']);
+   if(tr>0&&!ppt)m.push(['bad','Falta u/lata de '+(p?p.name:'este producto')+'.']);
+   const al=p&&D.allowed(e.code);if(p&&al&&al.length&&ppt&&!al.includes(ppt))m.push(['bad','u/lata '+ppt+' no es válido para '+p.name+' ('+al.join(' o ')+').']);
+   if(e.totalSaid&&e.totalSaid!==u)m.push(['warn','Dijo total '+e.totalSaid+' pero latas × u/lata + sueltas = '+u+'.']);
+   return{u,m,vals:{ppt,trays:tr,loose:lo}}},
+  say(e,c,p){return p.name+', '+(c.vals.trays?c.vals.trays+(c.vals.trays===1?' lata':' latas')+' de '+c.vals.ppt:'')+(c.vals.loose?(c.vals.trays?', más ':'')+c.vals.loose+' sueltas':'')+', '+c.u+' unidades'}},
+ units:{fields:[{k:'units',l:'Unidades'}],
+  build(e,f){if(f.units!=null)e.units=f.units;else if(f.trays!=null)e.units=f.trays*(f.ppt||0)+(f.loose||0);else if(f.loose!=null)e.units=f.loose;else if(f.bare.length)e.units=f.bare[0];if(f.trays!=null&&!f.ppt)e._needPpt=f.trays},
+  calc(e,D){const p=D.byCode(e.code),m=[];let u=e.units!=null?e.units:0;if(e._needPpt&&!e.units){const pp=(p&&p.p)||0;if(pp)u=e._needPpt*pp+(e.loose||0);else m.push(['bad','Dijo latas pero falta u/lata.'])}
+   if(!p)m.push(['bad','Elija el producto.']);if(!(u>0))m.push(['bad','Sin unidades.']);return{u,m,vals:{units:u}}},
+  say(e,c,p){return p.name+', '+c.u+' unidades'}},
+ past:{fields:[{k:'dest',l:'Destino',sel:[['COSTA','Costa'],['SIERRA','Sierra']]},{k:'upf',l:'u/funda'},{k:'bags',l:'Fundas'},{k:'loose',l:'Sueltas'},{k:'units',l:'Unidades'}],
+  build(e,f){['dest','upf','bags','loose','units'].forEach(k=>{if(f[k]!=null)e[k]=f[k]});if(f.trays!=null&&e.bags==null)e.bags=f.trays;if(e.bags==null&&e.loose==null&&e.units==null&&f.bare.length)e._bare=f.bare[0]},
+  calc(e,D){const p=D.byCode(e.code),pv=D.prev(e.code)||{},m=[];let bags=e.bags,units=e.units;const upf=e.upf||pv.upf||D.defUpf(e.code)||0;
+   if(e._bare!=null&&bags==null&&units==null){if(upf)bags=e._bare;else units=e._bare}
+   let u;if(units!=null)u=units;else u=(bags||0)*upf+(e.loose||0);
+   if(!p)m.push(['bad','Elija el producto.']);if(bags&&!upf&&units==null)m.push(['bad','Falta u/funda de '+(p?p.name:'este producto')+'.']);if(!(u>0))m.push(['bad','Sin cantidad.']);
+   return{u,m,vals:{dest:e.dest||pv.dest||D.defDest(e.code),upf,bags:bags,loose:e.loose,units}}},
+  say(e,c,p){return p.name+', '+(c.vals.dest==='COSTA'?'Costa':'Sierra')+', '+c.u+' unidades'}}};
+/* ---------- interfaz ---------- */
+let D=null,M=null,rec=null,sess=null,idle=null,last='';
+const CSS=`#pnMic{position:fixed;right:14px;bottom:88px;z-index:9000;width:58px;height:58px;border-radius:50%;border:0;background:#0b7c77;color:#fff;font-size:26px;box-shadow:0 4px 14px rgba(0,0,0,.35);display:none}
+#pnV{position:fixed;left:0;right:0;bottom:0;z-index:10050;background:#fffaf3;border-top:3px solid #0b7c77;border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.3);padding:12px 12px 16px;max-height:88vh;overflow:auto;display:none;font-family:system-ui,sans-serif;color:#2a1d10}
+#pnV h4{margin:0 0 6px;font-size:1rem;display:flex;justify-content:space-between;align-items:center}
+#pnV textarea{width:100%;min-height:58px;font-size:1rem;padding:8px;border:1px solid #cdbfae;border-radius:10px;box-sizing:border-box}
+#pnV .vrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}#pnV button.vb{border:0;border-radius:12px;padding:12px 14px;font-weight:700;font-size:.95rem;background:#e8dccb;color:#3a2a1a;cursor:pointer}
+#pnV button.vb.go{background:#0b7c77;color:#fff}#pnV button.vb.rec{background:#c0392b;color:#fff}#pnV button.vb[disabled]{opacity:.45}
+#pnV table{width:100%;border-collapse:collapse;font-size:.85rem}#pnV th{font-size:.7rem;text-align:left;color:#6a5846;padding:2px}#pnV td{padding:3px 2px;vertical-align:middle}
+#pnV select,#pnV input.vi{width:100%;box-sizing:border-box;font-size:.95rem;padding:6px;border:1px solid #cdbfae;border-radius:8px;background:#fff;min-width:46px}
+#pnVCard{overflow-x:auto}#pnV td:first-child select{min-width:104px}#pnV input.vi{min-width:38px;padding:6px 3px}#pnV textarea{min-height:46px;height:46px}#pnV .vtot{font-size:1.1rem;font-weight:800;margin:8px 0;color:#0b4f4c}#pnV .vm{font-size:.82rem;margin:3px 0}.vm.bad{color:#b3261e;font-weight:700}.vm.warn{color:#9a6b00}.vm.ok{color:#0b7c77}.vsub{font-size:.75rem;color:#6a5846}`;
+const SRC=()=>window.SpeechRecognition||window.webkitSpeechRecognition,cmdRe=/\b(registrar|registra|guardar|guarda)\b/;
+function ui(){if($('pnV'))return;const st=D0.createElement('style');st.textContent=CSS;D0.head.appendChild(st);
+ const b=D0.createElement('button');b.id='pnMic';b.type='button';b.title='Dictar por voz';b.textContent='🎤';b.onclick=open;D0.body.appendChild(b);
+ const d=D0.createElement('div');d.id='pnV';d.innerHTML=`<h4><span id="pnVT">🎤 Dictar</span><button class="vb" data-v="close" style="padding:6px 12px">✕</button></h4><div class="vsub" id="pnVH"></div>
+ <label style="display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.8rem"><input type="checkbox" id="pnVCf" style="width:auto"> Confirmar con voz (lee el resumen y espera «confirma» o «corrige»)</label>
+ <textarea id="pnVTa" placeholder="Pulse Hablar, o use el micrófono de su teclado aquí"></textarea>
+ <div class="vrow"><button class="vb go" data-v="talk" id="pnVTalk">🎤 Hablar</button><button class="vb" data-v="parse">Interpretar texto</button></div>
+ <div class="vm" id="pnVS"></div><div id="pnVCard"></div>`;D0.body.appendChild(d);
+ d.addEventListener('click',e=>{const k=e.target.closest('[data-v]');if(!k)return;const a=k.dataset.v;if(a==='close')close();else if(a==='talk')talk();else if(a==='parse')interpret();else if(a==='make')make();else if(a==='del'){readCard();M.entries.splice(+k.dataset.i,1);card();if(!M.entries.length)status('Sin líneas: dicte de nuevo.','warn')}else if(a==='clear'){$('pnVTa').value='';$('pnVCard').innerHTML='';M=null}});
+ d.addEventListener('input',e=>{if(e.target.closest('#pnVCard')){readCard();refresh()}});d.addEventListener('change',e=>{if(e.target.closest('#pnVCard')){readCard();card()}})}
+function status(t,c){const s=$('pnVS');if(s){s.textContent=t||'';s.className='vm '+(c||'')}}
+function open(){D=cfg.screen();if(!D)return;prep(D);ui();$('pnVT').textContent='🎤 '+D.title;$('pnVH').innerHTML=D.hint;
+ const c=$('pnVCf');if(c&&!c.dataset.i){c.dataset.i=1;try{c.checked=localStorage.getItem('panalim_voice_confirm')!=='0'}catch(_){c.checked=true}c.addEventListener('change',()=>{try{localStorage.setItem('panalim_voice_confirm',c.checked?'1':'0')}catch(_){}})}
+ $('pnV').style.display='block';$('pnMic').style.display='none';D0.body.style.paddingBottom='460px';status(last,'ok')}
+function close(){endSess();sess=null;try{speechSynthesis.cancel()}catch(_){}$('pnV').style.display='none';D0.body.style.paddingBottom='';place()}
+function prep(d){d.byCode=c=>d.catalog.find(p=>p.code===c);d.mode=d.mode||'set';d.prev=d.prev||(()=>null);d.allowed=d.allowed||(()=>null);d.defPpt=d.defPpt||(()=>0);d.defUpf=d.defUpf||(()=>0);d.defDest=d.defDest||(()=>'SIERRA');d.build=KINDS[d.kind]?(e,f)=>KINDS[d.kind].build(e,f):()=>{}}
+function place(){const b=$('pnMic');if(!b){if(cfg.screen())ui();else return}const bb=$('pnMic'),vis=$('pnV').style.display==='block';bb.style.display=(!vis&&cfg.screen())?'block':'none'}
+const vcf=()=>{const c=$('pnVCf');return !c||c.checked};
+function btnState(on){const b=$('pnVTalk');if(!b)return;b.textContent=on?'■ Detener':'🎤 Hablar';b.className='vb '+(on?'rec':'go')}
+function endSess(){if(idle){clearInterval(idle);idle=null}if(sess)sess.active=false;try{rec&&rec.abort()}catch(_){}rec=null;btnState(false)}
+function talk(){if(sess&&sess.active){const had=($('pnVTa').value||'').trim();endSess();sess=null;try{speechSynthesis.cancel()}catch(_){}if(had)interpret();else status('Detenido.','warn');return}startDictation()}
+function startDictation(){const ta=$('pnVTa');if(!SRC()){status('Este navegador no trae reconocimiento de voz. Use Chrome, Opera o Brave, o el micrófono del teclado en el cuadro.','warn');ta.focus();return}
+ try{speechSynthesis.cancel()}catch(_){}endSess();ta.value='';$('pnVCard').innerHTML='';M=null;sess={active:true,mode:'dictate',acc:'',cur:'',last:Date.now()};runRec();
+ idle=setInterval(()=>{if(sess&&sess.active&&sess.mode==='dictate'&&Date.now()-sess.last>30000){const had=(ta.value||'').trim();endSess();sess=null;if(had)interpret();else status('No se oyó nada.','warn')}},2000)}
+function runRec(){if(!sess||!sess.active)return;const SR=SRC(),ta=$('pnVTa'),r=new SR(),mode=sess.mode;rec=r;r.lang='es-EC';r.continuous=mode==='dictate';r.interimResults=mode==='dictate';r.maxAlternatives=1;
+ r.onstart=()=>{btnState(true);status(mode==='dictate'?'Escuchando… diga todo y termine con «registrar»':'Diga «confirma» o «corrige»…','ok')};
+ r.onresult=e=>{if(!sess||!sess.active)return;const out=[];for(let i=0;i<e.results.length;i++){const t=(e.results[i][0].transcript||'').trim();if(!t)continue;if(out.length&&norm(t).startsWith(norm(out[out.length-1])))out[out.length-1]=t;else out.push(t)}
+  const cur=out.join(' ');sess.last=Date.now();
+  if(mode==='answer'){const a=norm(cur);if(/\b(corrige|corregir|corrijo|no|cancela|cancelar|repite|repetir|incorrecto|mal)\b/.test(a)){endSess();sess=null;speak('De acuerdo, repita el registro completo.',()=>startDictation())}else if(/\b(confirma|confirmo|confirmar|confirmado|si|correcto|registrar|registra|guardar|guarda|dale|adelante)\b/.test(a)){endSess();sess=null;make()}return}
+  sess.cur=cur;const full=(sess.acc+' '+cur).trim();ta.value=full;if(cmdRe.test(norm(full)))finishByCmd()};
+ r.onerror=e=>{if(e.error==='no-speech'||e.error==='aborted')return;const m={'not-allowed':'Permiso de micrófono denegado: actívelo en los permisos del sitio.','service-not-allowed':'Este navegador no permite el reconocimiento de voz.','network':'Sin conexión con el servicio de voz. Revise el internet.','audio-capture':'No se encontró micrófono.'};endSess();sess=null;status(m[e.error]??('Error de voz: '+e.error),'bad')};
+ r.onend=()=>{rec=null;if(!sess||!sess.active){btnState(false);return}
+  if(mode==='dictate'){sess.acc=(sess.acc+' '+(sess.cur||'')).trim();sess.cur='';ta.value=sess.acc;setTimeout(runRec,120)}
+  else{sess.tries=(sess.tries||0)+1;if(sess.tries<3){setTimeout(()=>{if(sess&&sess.active)runRec()},200)}else{endSess();sess=null;status('Sin respuesta por voz: use los botones de la tarjeta.','warn')}}};
+ try{r.start()}catch(err){endSess();sess=null;status('No se pudo iniciar el micrófono: '+err.message,'bad')}}
+function finishByCmd(){const ta=$('pnVTa'),raw=ta.value,m=cmdRe.exec(norm(raw));endSess();sess=null;if(m)ta.value=raw.slice(0,m.index).replace(/[\s,.;:-]+$/,'');interpret();afterInterpret()}
+function speak(t,cb){let done=false;const go=()=>{if(!done){done=true;cb&&cb()}};try{if(!window.speechSynthesis){go();return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='es-ES';const v=speechSynthesis.getVoices().find(x=>/^es/i.test(x.lang));if(v)u.voice=v;u.onend=()=>setTimeout(go,250);u.onerror=go;speechSynthesis.speak(u);setTimeout(go,20000)}catch(_){go()}}
+function afterInterpret(){if(!M)return;const k=calc();if(k.block){status('No se puede registrar: '+k.bad,'bad');speak('No puedo registrar: '+k.bad+' Corrija en la tarjeta o repita.');return}
+ if(!vcf()){status('Revise la tarjeta y pulse Registrar.','ok');return}
+ const parts=M.entries.map((e,i)=>k.rows[i].say);const txt=M.entries.length>6?M.entries.length+' líneas, total '+k.total+' unidades.':parts.join('. ')+'. Total '+k.total+' unidades.';
+ speak(txt+' ¿Confirma o corrige?',()=>{if(!M)return;sess={active:true,mode:'answer',last:Date.now(),tries:0};runRec()})}
+/* ---- interpretar ---- */
+function interpret(){const raw=($('pnVTa').value||'').trim();if(!raw){status('Escriba o dicte primero.','warn');return}
+ try{if(!D)D=cfg.screen();prep(D);let entries,meta={};
+  if(D.kind==='esp'){entries=parseEsp(raw)}else{const r=parseList(raw,D);entries=r.entries;meta=r.meta;if(!entries.length&&!meta.name){status('No reconocí ningún producto en: «'+raw+'»','bad');$('pnVCard').innerHTML='';M=null;return}}
+  M={entries,meta,d:D};last='';card();status('Revise y pulse Registrar'+(vcf()?' (o diga «confirma»)':'')+'.','ok')}catch(err){status('No pude interpretar: '+err.message,'bad')}}
+function calc(){const d=M.d,res={rows:[],total:0,block:false,bad:'',msgs:[]};
+ M.entries.forEach((e,i)=>{let r;
+  if(d.kind==='esp'){const m=[];if(!String(e.name||'').trim())m.push(['bad','Falta el nombre del pedido.']);if(!(e.units>0))m.push(['bad','Faltan unidades.']);r={u:e.units>0?e.units:0,m,say:(e.name||'pedido')+', '+(e.units||0)+' unidades'+(e.note?', para '+e.note:'')}}
+  else{r=KINDS[d.kind].calc(e,d);const p=d.byCode(e.code);r.say=p?KINDS[d.kind].say(e,r,p):'producto sin identificar';
+   if(e.rest)r.m.push(['warn','No entendí: «'+e.rest+'».']);
+   if(d.mode==='set'&&e.code&&M.entries.findIndex(x=>x.code===e.code)<i)r.m.push(['warn','Producto repetido: se usará la última línea.'])}
+  res.rows.push(r);res.total+=r.u||0;r.m.forEach(x=>{const lab=d.kind==='esp'?(e.name||'línea '+(i+1)):((d.byCode(e.code)||{}).name||'línea '+(i+1));res.msgs.push([x[0],lab+': '+x[1]]);if(x[0]==='bad'&&!res.block){res.block=true;res.bad=lab+': '+x[1]}})});
+ if(M.meta&&M.meta.name)res.msgs.push(['ok','Nombre: '+M.meta.name]);return res}
+function card(){if(!M)return;const d=M.d,k=calc(),esp=d.kind==='esp';
+ const head=esp?['Pedido','Unidades','Para / nota']:['Producto',...KINDS[d.kind].fields.map(f=>f.l),'Total u'];
+ let h=`<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join('')}<th></th></tr></thead><tbody>`;
+ M.entries.forEach((e,i)=>{const r=k.rows[i];
+  if(esp){h+=`<tr><td><input class="vi" data-i="${i}" data-k="name" value="${E(e.name)}"></td><td><input class="vi" data-i="${i}" data-k="units" inputmode="numeric" value="${e.units==null?'':e.units}"></td><td><input class="vi" data-i="${i}" data-k="note" value="${E(e.note)}"></td><td><button class="vb" data-v="del" data-i="${i}" style="padding:4px 9px">✕</button></td></tr>`;return}
+  const cs=(e.cands||[]).map(c=>d.byCode(c)).filter(Boolean),opts=(!e.code&&cs.length)?cs.concat(d.catalog.filter(p=>!cs.includes(p))):d.catalog;
+  const pv=d.prev(e.code)||{},ph=KINDS[d.kind].calc(e,d).vals||{};
+  h+=`<tr><td><select data-i="${i}" data-k="code"><option value="">— elegir —</option>${opts.map(p=>`<option value="${E(p.code)}"${p.code===e.code?' selected':''}>${E(p.name)}</option>`).join('')}</select></td>`;
+  KINDS[d.kind].fields.forEach(f=>{const v=e[f.k];if(f.sel)h+=`<td><select data-i="${i}" data-k="${f.k}">${f.sel.map(o=>`<option value="${o[0]}"${((v||ph[f.k])===o[0])?' selected':''}>${o[1]}</option>`).join('')}</select></td>`;else h+=`<td><input class="vi" data-i="${i}" data-k="${f.k}" inputmode="numeric" value="${v==null?'':v}" placeholder="${ph[f.k]?ph[f.k]:''}"></td>`});
+  h+=`<td><b data-tot="${i}">${r.u||''}</b></td><td><button class="vb" data-v="del" data-i="${i}" style="padding:4px 9px">✕</button></td></tr>`;
+  const bf=d.before&&e.code?d.before(e.code):'';if(bf)h+=`<tr><td colspan="${KINDS[d.kind].fields.length+3}" class="vsub">antes: ${E(bf)} → se reemplaza</td></tr>`});
+ h+=`</tbody></table><div class="vtot" id="pnVTot">Total: ${k.total} unidades</div><div id="pnVMs">${k.msgs.map(m=>`<div class="vm ${m[0]}">${E(m[1])}</div>`).join('')}</div>${M.meta.name?'':''}
+ <div class="vrow"><button class="vb go" data-v="make" id="pnVMake"${k.block?' disabled':''}>✔ Registrar</button><button class="vb" data-v="talk">🎤 Dictar de nuevo</button><button class="vb" data-v="clear">Limpiar</button></div>`;
+ $('pnVCard').innerHTML=h}
+function refresh(){if(!M)return;const k=calc();M.entries.forEach((e,i)=>{const b=$('pnVCard').querySelector('[data-tot="'+i+'"]');if(b)b.textContent=k.rows[i].u||''});$('pnVTot').textContent='Total: '+k.total+' unidades';$('pnVMs').innerHTML=k.msgs.map(m=>`<div class="vm ${m[0]}">${E(m[1])}</div>`).join('');const mk=$('pnVMake');if(mk)mk.disabled=k.block}
+function readCard(){if(!M)return;$('pnVCard').querySelectorAll('[data-i][data-k]').forEach(el=>{const i=+el.dataset.i,e=M.entries[i];if(!e)return;const k=el.dataset.k;let v=el.value;if(k==='code'){e.code=v;e.sure=true;e.cands=[];return}if(k==='name'||k==='note'){e[k]=v;return}if(k==='dest'){e.dest=v;return}if(el.tagName==='SELECT'&&el.dataset.k!=='code'){e[k]=v;return}v=String(v).replace(/[^0-9]/g,'');e[k]=v===''?null:Number(v)})}
+function make(){if(!M)return;readCard();const k=calc();if(k.block){status('No se puede registrar: '+k.bad,'bad');return}
+ const rows=M.entries.map((e,i)=>({e,c:k.rows[i]}));let msg='';try{msg=M.d.apply(rows,M.meta)||'Registrado.'}catch(err){status('Error al registrar: '+err.message,'bad');return}
+ last='✔ '+msg;endSess();sess=null;try{speechSynthesis.cancel()}catch(_){}M=null;$('pnVTa').value='';$('pnVCard').innerHTML='';status(last,'ok');speak(msg);try{cfg.toast&&cfg.toast(msg)}catch(_){}}
+let cfg={screen:()=>null};
+window.PNVoice={init(c){cfg=c;ui();setInterval(()=>{try{let vis=$('pnV').style.display==='block';if(vis){const sc=cfg.screen();if(!sc||(D&&sc.key!==D.key)){close();vis=false}}$('pnMic').style.display=(!vis&&cfg.screen())?'block':'none'}catch(_){}},700)},parseList,parseEsp,ext,digits,norm,matchAt,KINDS,prep,open};
+})();
+
+;(()=>{const C={};
+const catPR=()=>C.pr||(C.pr=PR.map(p=>({code:p.c,name:p.n,p:p.p})).sort((a,b)=>a.name.localeCompare(b.name,'es')));
+const catPast=()=>C.pa||(C.pa=PAST.map(x=>({code:x.id,name:x.name,names:[x.name,x.costa].filter(Boolean)})));
+const lat=(key,title,hint,store)=>({key,title,kind:'lata',mode:'add',hint,catalog:catPR(),defPpt:c=>c?pr(c).p:0,
+ apply(rows){rows.forEach(({e,c})=>{const row={code:e.code,name:pr(e.code).n,ppt:c.vals.ppt,trays:c.vals.trays,loose:c.vals.loose,units:c.u,time:hhmm()};store(row)});save();render();return rows.length+(rows.length===1?' línea registrada.':' líneas registradas.')}});
+const SC={
+ nota:()=>lat('nota','Dictar despacho al local principal','Diga el producto y sus cantidades; cada línea queda con su hora. Ej.: «Tapado, 10 latas de 18. Pan de agua, 5 latas, 6 sueltas. <b>Registrar</b>».',r=>S.disp.push(r)),
+ t3:()=>lat('t3','Dictar T3 a mano','Ej.: «Mollete, 8 latas de 20. Tornillo, 4 latas, 3 sueltas. <b>Registrar</b>».',r=>S.t3.push({...r,by:'manual',bundleId:'MANUAL'})),
+ sob:()=>C.sob||(C.sob={key:'sob',title:'Dictar sobrantes de T1',kind:'units',mode:'set',catalog:catPR(),
+  hint:'Diga producto y <b>unidades</b>. Ej.: «Tapado 120, pan de agua 60, mollete 36. <b>Registrar</b>». También sirve «tapado 5 latas de 18».',
+  before:c=>S.sob[c]?S.sob[c]+' u':'',
+  apply(rows){rows.forEach(({e,c})=>{if(c.u>0)S.sob[e.code]=c.u});save();render();return rows.length+' sobrantes registrados.'}}),
+ past:()=>C.past||(C.past={key:'past',title:'Dictar pastelería',kind:'past',mode:'set',catalog:catPast(),
+  hint:'Diga producto y cantidad: fundas, sueltas o unidades, y si quiere «costa» o «sierra». Ej.: «Biscochos, 10 fundas, 4 sueltas, costa. Galletas, 120 unidades. <b>Registrar</b>».',
+  prev:c=>{const x=PAST.find(q=>q.id===c);return x?{upf:pUpf(x),dest:pDest(x)}:null},defUpf:c=>{const x=PAST.find(q=>q.id===c);return x?pUpf(x):0},defDest:c=>{const x=PAST.find(q=>q.id===c);return x?pDest(x):'SIERRA'},
+  before:c=>{const x=PAST.find(q=>q.id===c),u=pUnits(x);return u?u+' u ('+(pDest(x)==='COSTA'?'Costa':'Sierra')+')':''},
+  apply(rows){rows.forEach(({e,c})=>{const v=pv(e.code);if(e.dest)v.dest=e.dest;if(e.upf!=null)v.upf=String(e.upf);if(c.vals.units!=null){v.units=String(c.vals.units)}else{v.bags=String(c.vals.bags||'');v.loose=String(c.vals.loose||'');v.units=''}});save();render();return rows.length+' líneas de pastelería registradas.'}}),
+ esp:()=>C.esp||(C.esp={key:'esp',title:'Dictar pedidos especiales',kind:'esp',
+  hint:'Diga el pedido, las unidades y «para …». Ej.: «Pastel de boda, 3 unidades, para Juan. Siguiente. Pan de yuca, 50 unidades. <b>Registrar</b>».',
+  apply(rows){rows.forEach(({e})=>S.sp.push({name:String(e.name).trim(),units:e.units,note:String(e.note||'').trim()}));save();render();return rows.length+(rows.length===1?' pedido especial registrado.':' pedidos especiales registrados.')}})};
+PNVoice.init({toast:m=>toast(m),screen:()=>{const f=SC[S.tab];return f?f():null}});})();
+</script>
 <script src="../shared/pwa.js"></script></body></html>
